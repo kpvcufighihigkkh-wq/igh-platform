@@ -1,0 +1,16 @@
+lines:
+  - code: "L01"
+    name: "FDY Line 01"
+    product_type: "FDY"
+    brand: "barmag"
+    twin: true
+    positions: 24
+    bobbins_per_doff: 8
+    trolley_spec:
+      type: "FDY_48"
+      rows: 4
+      cols: 6
+      layers: 2
+      total_bobbins: 48
+    edge_node: "edge-winding-01"
+    plc_device: "plc-L01"

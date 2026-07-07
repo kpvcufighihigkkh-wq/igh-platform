@@ -1,0 +1,44 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+vendor/
+go.sum
+
+# Frontend
+web/node_modules/
+web/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.local
+
+# Logs
+logs/
+*.log
+
+# Build
+tmp/
+
+# Go workspace (local only)
+go.work
+go.work.sum
+
+# Test results
+web/test-results/
+
+# Data
+data/

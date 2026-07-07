@@ -1,0 +1,17 @@
+mode: "disabled"
+
+push_only:
+  target: "mssql://10.30.30.144/fangsi"
+  tables: [doffings, trolleys, pallets]
+  trigger: "on_event"
+  retry: 3
+  timeout_sec: 10
+
+bidirectional:
+  api_endpoint: "http://10.30.31.70:8080/api"
+  push:
+    tables: [doffings, trolleys, pallets]
+    trigger: "on_event"
+  pull:
+    resources: [orders, specifications]
+    interval_sec: 60

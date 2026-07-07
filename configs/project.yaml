@@ -1,0 +1,49 @@
+project:
+  name: "华祥智纤（九江）"
+  code: "HX-JJ-001"
+  customer: "华祥智纤（九江）科技有限公司"
+  timezone: "Asia/Shanghai"
+
+server:
+  http_port: 8099
+  ws_port: 8100
+  api_key: "sk-igh-dev-key-change-in-production"
+
+ha:
+  mode: "standalone"
+  vip: "127.0.0.1"
+  peer: ""
+  heartbeat_interface: ""
+
+database:
+  host: "127.0.0.1"
+  port: 5432
+  name: "igh_platform"
+  user: "igh"
+  password: "${DB_PASSWORD}"
+  max_connections: 30
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  password: ""
+
+shifts:
+  - {code: 1, name: "早班", start: "08:00", end: "15:59"}
+  - {code: 2, name: "中班", start: "16:00", end: "23:59"}
+  - {code: 3, name: "夜班", start: "00:00", end: "07:59"}
+
+lot_rules:
+  prefix_source: "settings"
+  code_format: "{prefix}{sequence}"
+  barcode_format: "YYMMDD901{seq:04d}"
+  barcode_reset: "weekly_monday"
+
+modules:
+  winding: true
+  quality: true
+  warehouse: true
+  packaging: true
+  erp: false
+  maintenance: true
+  vehicle: true

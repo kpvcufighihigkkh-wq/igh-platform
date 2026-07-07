@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'igh-server'
+    static_configs:
+      - targets: ['host.docker.internal:8099']
+    metrics_path: /metrics
+
+  - job_name: 'igh-server-standby'
+    static_configs:
+      - targets: ['192.168.10.2:8099']
+    metrics_path: /metrics
