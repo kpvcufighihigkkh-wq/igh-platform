@@ -70,6 +70,11 @@ func (h *Handler) update(c *gin.Context) {
 
 func (h *Handler) del(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	h.db.Delete(&model.Equipment{}, id)
+	// 删除失败必须报错：返回 200 会让界面把这条记录移出列表，
+	// 但库里还在，刷新后又冒出来——现场只会以为系统在抽风。
+	if err := h.db.Delete(&model.Equipment{}, id).Error; err != nil {
+		c.JSON(500, types.Response{Code: 500, Message: err.Error()})
+		return
+	}
 	c.JSON(200, types.Response{Code: 0})
 }

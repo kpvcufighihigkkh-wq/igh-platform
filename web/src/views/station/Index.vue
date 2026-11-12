@@ -72,6 +72,32 @@
       </div>
     </n-card>
 
+    <!-- 待应用现场配置：中心下发后必须人工确认才生效 -->
+    <n-card v-if="pendingConfig" title="现场配置待应用" style="margin-top: 16px">
+      <template #header-extra>
+        <n-tag type="warning" size="small">版本 {{ pendingConfig.version }}</n-tag>
+      </template>
+
+      <n-alert type="warning" :bordered="false" style="margin-bottom: 12px">
+        中心下发了新的现场配置（{{ pendingSummary }}）。
+        应用后边端会按新点表重新连接 PLC，产线运行中请谨慎操作。
+      </n-alert>
+
+      <n-space>
+        <n-button type="primary" :loading="applyingConfig" @click="applyConfig">应用配置</n-button>
+        <n-button @click="discardConfig">放弃</n-button>
+      </n-space>
+    </n-card>
+
+    <!-- 配置校验问题 -->
+    <n-card v-if="configProblems.length" title="配置校验未通过" style="margin-top: 16px">
+      <n-alert type="error" :bordered="false">
+        <ul class="config-problems">
+          <li v-for="(p, i) in configProblems" :key="i">{{ p }}</li>
+        </ul>
+      </n-alert>
+    </n-card>
+
     <!-- Active alarms -->
     <n-card title="当前异常" style="margin-top: 16px" v-if="activeAlarms.length > 0">
       <div v-for="a in activeAlarms" :key="a.id" class="alarm-item">
@@ -136,11 +162,59 @@ const showCreateOrder = ref(false)
 const reprintTarget = ref('')
 const overrideReason = ref('')
 
+// 现场配置：中心下发后只暂存，必须人工确认才生效
+const pendingConfig = ref<any>(null)
+const configProblems = ref<string[]>([])
+const applyingConfig = ref(false)
+
+const pendingSummary = computed(() => {
+  const p = pendingConfig.value
+  if (!p) return ''
+  const parts: string[] = []
+  if (p.plc?.length) parts.push(`${p.plc.length} 个 PLC 点表`)
+  if (p.loading?.patterns?.length) parts.push(`${p.loading.patterns.length} 套装载查表`)
+  if (p.heads?.head_maps?.length) parts.push(`${p.heads.head_maps.length} 套锭位映射`)
+  return parts.join('、') || '无实际内容'
+})
+
+async function loadConfig() {
+  try {
+    const res: any = await http.get('/edge/config')
+    pendingConfig.value = res.data?.pending || null
+    configProblems.value = res.data?.problems || []
+  } catch {
+    // 旧版本边端没有该接口：静默忽略，不影响工位主流程
+  }
+}
+
+async function applyConfig() {
+  applyingConfig.value = true
+  try {
+    await http.post('/edge/config/apply', {})
+    pendingConfig.value = null
+    configProblems.value = []
+  } catch (e: any) {
+    configProblems.value = [e?.response?.data?.message || e?.message || String(e)]
+  } finally {
+    applyingConfig.value = false
+  }
+}
+
+async function discardConfig() {
+  try {
+    await http.post('/edge/config/discard', {})
+  } finally {
+    pendingConfig.value = null
+    configProblems.value = []
+  }
+}
+
 onMounted(async () => {
   try {
     const res: any = await http.get('/alarms?status=active&page_size=5')
     activeAlarms.value = res.data?.items || []
   } catch {}
+  loadConfig()
 })
 
 function reprintLabel() { showReprint.value = true }
@@ -176,4 +250,6 @@ async function acknowledgeAlarm(id: number) {
 .big-text { font-size: 28px; font-weight: bold; color: var(--color-primary); }
 .alarm-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .alarm-msg { flex: 1; font-size: 14px; }
+.config-problems { margin: 4px 0 0 18px; padding: 0; }
+.config-problems li { font-size: 13px; line-height: 1.7; }
 </style>

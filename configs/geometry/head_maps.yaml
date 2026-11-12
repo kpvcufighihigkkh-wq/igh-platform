@@ -1,0 +1,95 @@
+# 由 tools/geomgen/extract.js 从 Hive O17006/setup/udt*Macsa.js 生成，请勿手改。
+# 语义：打标头(head) + 段序(step) → 模块内锭位(position)。
+head_maps:
+  - head_count: 6
+    steps_per_head: 4
+    capacity: 24
+    entries:
+      - { head: 1, step: 1, position: 1 }
+      - { head: 1, step: 2, position: 2 }
+      - { head: 1, step: 3, position: 3 }
+      - { head: 1, step: 4, position: 4 }
+      - { head: 2, step: 1, position: 8 }
+      - { head: 2, step: 2, position: 7 }
+      - { head: 2, step: 3, position: 6 }
+      - { head: 2, step: 4, position: 5 }
+      - { head: 3, step: 1, position: 9 }
+      - { head: 3, step: 2, position: 10 }
+      - { head: 3, step: 3, position: 11 }
+      - { head: 3, step: 4, position: 12 }
+      - { head: 4, step: 1, position: 16 }
+      - { head: 4, step: 2, position: 15 }
+      - { head: 4, step: 3, position: 14 }
+      - { head: 4, step: 4, position: 13 }
+      - { head: 5, step: 1, position: 17 }
+      - { head: 5, step: 2, position: 18 }
+      - { head: 5, step: 3, position: 19 }
+      - { head: 5, step: 4, position: 20 }
+      - { head: 6, step: 1, position: 24 }
+      - { head: 6, step: 2, position: 23 }
+      - { head: 6, step: 3, position: 22 }
+      - { head: 6, step: 4, position: 21 }
+  - head_count: 12
+    steps_per_head: 2
+    capacity: 24
+    entries:
+      - { head: 1, step: 1, position: 3 }
+      - { head: 1, step: 2, position: 4 }
+      - { head: 2, step: 1, position: 6 }
+      - { head: 2, step: 2, position: 5 }
+      - { head: 3, step: 1, position: 11 }
+      - { head: 3, step: 2, position: 12 }
+      - { head: 4, step: 1, position: 14 }
+      - { head: 4, step: 2, position: 13 }
+      - { head: 5, step: 1, position: 19 }
+      - { head: 5, step: 2, position: 20 }
+      - { head: 6, step: 1, position: 22 }
+      - { head: 6, step: 2, position: 21 }
+      - { head: 7, step: 1, position: 1 }
+      - { head: 7, step: 2, position: 2 }
+      - { head: 8, step: 1, position: 8 }
+      - { head: 8, step: 2, position: 7 }
+      - { head: 9, step: 1, position: 9 }
+      - { head: 9, step: 2, position: 10 }
+      - { head: 10, step: 1, position: 16 }
+      - { head: 10, step: 2, position: 15 }
+      - { head: 11, step: 1, position: 17 }
+      - { head: 11, step: 2, position: 18 }
+      - { head: 12, step: 1, position: 24 }
+      - { head: 12, step: 2, position: 23 }
+  - head_count: 16
+    steps_per_head: 2
+    capacity: 32
+    entries:
+      - { head: 1, step: 1, position: 3 }
+      - { head: 1, step: 2, position: 4 }
+      - { head: 2, step: 1, position: 6 }
+      - { head: 2, step: 2, position: 5 }
+      - { head: 3, step: 1, position: 11 }
+      - { head: 3, step: 2, position: 12 }
+      - { head: 4, step: 1, position: 14 }
+      - { head: 4, step: 2, position: 13 }
+      - { head: 5, step: 1, position: 18 }
+      - { head: 5, step: 2, position: 17 }
+      - { head: 6, step: 1, position: 23 }
+      - { head: 6, step: 2, position: 24 }
+      - { head: 7, step: 1, position: 26 }
+      - { head: 7, step: 2, position: 25 }
+      - { head: 8, step: 1, position: 31 }
+      - { head: 8, step: 2, position: 32 }
+      - { head: 9, step: 1, position: 1 }
+      - { head: 9, step: 2, position: 2 }
+      - { head: 10, step: 1, position: 8 }
+      - { head: 10, step: 2, position: 7 }
+      - { head: 11, step: 1, position: 9 }
+      - { head: 11, step: 2, position: 10 }
+      - { head: 12, step: 1, position: 16 }
+      - { head: 12, step: 2, position: 15 }
+      - { head: 13, step: 1, position: 20 }
+      - { head: 13, step: 2, position: 19 }
+      - { head: 14, step: 1, position: 21 }
+      - { head: 14, step: 2, position: 22 }
+      - { head: 15, step: 1, position: 28 }
+      - { head: 15, step: 2, position: 27 }
+      - { head: 16, step: 1, position: 29 }
+      - { head: 16, step: 2, position: 30 }

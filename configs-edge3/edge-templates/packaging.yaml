@@ -1,0 +1,61 @@
+# IGH Edge 配置模板 — 包装站 (Packaging Station)
+# 复制此文件为 edge.yaml 并修改实际参数
+
+edge:
+  id: "edge-packaging-01"     # 唯一节点标识
+  type: "packaging"             # 站点类型: packaging
+  data_dir: "./data"
+
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+  server:
+    url: "http://192.168.1.100:8099"
+    api_key: "sk-igh-change-in-production"
+    heartbeat_sec: 10
+    sync_interval_sec: 30
+
+  plc:
+    poll_interval_ms: 1000
+    devices:
+      # 包装线 PLC
+      - code: "plc-pack-01"
+        model: "packaging_line"
+        host: "192.168.3.10"
+        port: 102
+        rack: 0
+        slot: 1
+        protocol: "s7"
+        read_blocks:
+          - { db: 1, start: 0, size: 50, tag: "status" }       # 包装机状态
+          - { db: 2, start: 0, size: 100, tag: "weight" }      # 称重数据
+
+      # 电子秤 (Modbus RTU over TCP)
+      # - code: "scale-01"
+      #   model: "weight_scale"
+      #   host: "192.168.3.20"
+      #   port: 502
+      #   protocol: "modbus"
+      #   read_blocks:
+      #     - { db: 1, start: 0, size: 10, tag: "weight" }
+
+  printers:
+    # 栈板标签打印机
+    - code: "label-pallet-01"
+      host: "192.168.3.50"
+      port: 9100
+    # 箱标签打印机
+    - code: "label-box-01"
+      host: "192.168.3.51"
+      port: 9100
+
+  ha:
+    mode: "standalone"
+    peer: ""
+    vip: ""
+    priority: 100
+
+  line:
+    code: "PACK01"
+    name: "Packaging Line 01"

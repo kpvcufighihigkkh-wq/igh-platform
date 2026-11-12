@@ -41,3 +41,18 @@ web/test-results/
 
 # Data
 data/
+# 边端本地库（SQLite）：运行时产物，含现场数据，不入库。
+# 配置目录随机器不同（data-winding / data3 …），按模式忽略。
+data-*/
+data3/
+
+# 中心托管的前端产物：由 `npm run build` 生成后拷到 <配置目录>/ui/。
+# 源码在 web/src，产物不应入库，否则每次构建都会产生大量无意义 diff。
+configs/ui/
+
+# 旧系统资料（O17004 / O17006 的日志与源码快照）。
+# 只用于开发期核对字段与点表来源，不属于新系统，也不被任何代码引用。
+legacy/
+
+# Claude Code 本地设置：含本机绝对路径与调用记录，属于个人环境配置。
+.claude/

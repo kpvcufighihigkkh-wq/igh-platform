@@ -1,0 +1,423 @@
+{
+  "source": "Hive/DataBase/h028.sql",
+  "devices": [
+    {
+      "id": 1,
+      "code": "winder-L01",
+      "host": "192.168.5.101",
+      "winderDb": 555,
+      "winder": {
+        "schema": "even-odd",
+        "count": 24,
+        "udtSize": 92,
+        "stride": 198,
+        "offsetEven": 96,
+        "offsetEndEven": 10,
+        "offsetOdd": 4,
+        "offsetEndOdd": 102,
+        "sides": {
+          "left": 96,
+          "right": 4
+        }
+      },
+      "fields": [
+        {
+          "name": "DatiBobine_DaWinder.POSITION_Name",
+          "offset": 0,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.Doff_No",
+          "offset": 8,
+          "length": 2
+        },
+        {
+          "name": "DatiBobine_DaWinder.EndTimeOfPack",
+          "offset": 15,
+          "length": 4
+        },
+        {
+          "name": "DatiBobine_DaWinder.Yarn_Type",
+          "offset": 34,
+          "length": 12
+        },
+        {
+          "name": "DatiBobine_DaWinder.MachineName",
+          "offset": 71,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.CodeNumber",
+          "offset": 79,
+          "length": 12
+        }
+      ],
+      "udtSize": 92
+    },
+    {
+      "id": 2,
+      "code": "winder-L02",
+      "host": "192.168.5.102",
+      "winderDb": 555,
+      "winder": {
+        "schema": "even-odd",
+        "count": 24,
+        "udtSize": 92,
+        "stride": 198,
+        "offsetEven": 96,
+        "offsetEndEven": 10,
+        "offsetOdd": 4,
+        "offsetEndOdd": 102,
+        "sides": {
+          "left": 96,
+          "right": 4
+        }
+      },
+      "fields": [
+        {
+          "name": "DatiBobine_DaWinder.POSITION_Name",
+          "offset": 0,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.Doff_No",
+          "offset": 8,
+          "length": 2
+        },
+        {
+          "name": "DatiBobine_DaWinder.EndTimeOfPack",
+          "offset": 15,
+          "length": 4
+        },
+        {
+          "name": "DatiBobine_DaWinder.Yarn_Type",
+          "offset": 34,
+          "length": 12
+        },
+        {
+          "name": "DatiBobine_DaWinder.MachineName",
+          "offset": 71,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.CodeNumber",
+          "offset": 79,
+          "length": 12
+        }
+      ],
+      "udtSize": 92
+    },
+    {
+      "id": 3,
+      "code": "winder-L03",
+      "host": "192.168.5.103",
+      "winderDb": 555,
+      "winder": {
+        "schema": "even-odd",
+        "count": 24,
+        "udtSize": 92,
+        "stride": 198,
+        "offsetEven": 96,
+        "offsetEndEven": 10,
+        "offsetOdd": 4,
+        "offsetEndOdd": 102,
+        "sides": {
+          "left": 96,
+          "right": 4
+        }
+      },
+      "fields": [
+        {
+          "name": "DatiBobine_DaWinder.POSITION_Name",
+          "offset": 0,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.Doff_No",
+          "offset": 8,
+          "length": 2
+        },
+        {
+          "name": "DatiBobine_DaWinder.EndTimeOfPack",
+          "offset": 15,
+          "length": 4
+        },
+        {
+          "name": "DatiBobine_DaWinder.Yarn_Type",
+          "offset": 34,
+          "length": 12
+        },
+        {
+          "name": "DatiBobine_DaWinder.MachineName",
+          "offset": 71,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.CodeNumber",
+          "offset": 79,
+          "length": 12
+        }
+      ],
+      "udtSize": 92
+    },
+    {
+      "id": 4,
+      "code": "winder-L04",
+      "host": "192.168.5.104",
+      "winderDb": 555,
+      "winder": {
+        "schema": "even-odd",
+        "count": 24,
+        "udtSize": 92,
+        "stride": 198,
+        "offsetEven": 96,
+        "offsetEndEven": 10,
+        "offsetOdd": 4,
+        "offsetEndOdd": 102,
+        "sides": {
+          "left": 96,
+          "right": 4
+        }
+      },
+      "fields": [
+        {
+          "name": "DatiBobine_DaWinder.POSITION_Name",
+          "offset": 0,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.Doff_No",
+          "offset": 8,
+          "length": 2
+        },
+        {
+          "name": "DatiBobine_DaWinder.EndTimeOfPack",
+          "offset": 15,
+          "length": 4
+        },
+        {
+          "name": "DatiBobine_DaWinder.Yarn_Type",
+          "offset": 34,
+          "length": 12
+        },
+        {
+          "name": "DatiBobine_DaWinder.MachineName",
+          "offset": 71,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.CodeNumber",
+          "offset": 79,
+          "length": 12
+        }
+      ],
+      "udtSize": 92
+    },
+    {
+      "id": 5,
+      "code": "winder-L05",
+      "host": "192.168.5.105",
+      "winderDb": 555,
+      "winder": {
+        "schema": "even-odd",
+        "count": 24,
+        "udtSize": 92,
+        "stride": 198,
+        "offsetEven": 96,
+        "offsetEndEven": 10,
+        "offsetOdd": 4,
+        "offsetEndOdd": 102,
+        "sides": {
+          "left": 96,
+          "right": 4
+        }
+      },
+      "fields": [
+        {
+          "name": "DatiBobine_DaWinder.POSITION_Name",
+          "offset": 0,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.Doff_No",
+          "offset": 8,
+          "length": 2
+        },
+        {
+          "name": "DatiBobine_DaWinder.EndTimeOfPack",
+          "offset": 15,
+          "length": 4
+        },
+        {
+          "name": "DatiBobine_DaWinder.Yarn_Type",
+          "offset": 34,
+          "length": 12
+        },
+        {
+          "name": "DatiBobine_DaWinder.MachineName",
+          "offset": 71,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.CodeNumber",
+          "offset": 79,
+          "length": 12
+        }
+      ],
+      "udtSize": 92
+    },
+    {
+      "id": 6,
+      "code": "winder-L06",
+      "host": "192.168.5.106",
+      "winderDb": 555,
+      "winder": {
+        "schema": "even-odd",
+        "count": 24,
+        "udtSize": 92,
+        "stride": 198,
+        "offsetEven": 96,
+        "offsetEndEven": 10,
+        "offsetOdd": 4,
+        "offsetEndOdd": 102,
+        "sides": {
+          "left": 96,
+          "right": 4
+        }
+      },
+      "fields": [
+        {
+          "name": "DatiBobine_DaWinder.POSITION_Name",
+          "offset": 0,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.Doff_No",
+          "offset": 8,
+          "length": 2
+        },
+        {
+          "name": "DatiBobine_DaWinder.EndTimeOfPack",
+          "offset": 15,
+          "length": 4
+        },
+        {
+          "name": "DatiBobine_DaWinder.Yarn_Type",
+          "offset": 34,
+          "length": 12
+        },
+        {
+          "name": "DatiBobine_DaWinder.MachineName",
+          "offset": 71,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.CodeNumber",
+          "offset": 79,
+          "length": 12
+        }
+      ],
+      "udtSize": 92
+    },
+    {
+      "id": 7,
+      "code": "winder-L07",
+      "host": "192.168.5.107",
+      "winderDb": 552,
+      "winder": {
+        "schema": "even-odd-single",
+        "count": 120,
+        "udtSize": 92,
+        "stride": 106,
+        "offsetEven": 4,
+        "offsetEndEven": 10,
+        "offsetOdd": 4,
+        "offsetEndOdd": 10,
+        "sides": null
+      },
+      "fields": [
+        {
+          "name": "DatiBobine_DaWinder.POSITION_Name",
+          "offset": 0,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.Doff_No",
+          "offset": 8,
+          "length": 2
+        },
+        {
+          "name": "DatiBobine_DaWinder.EndTimeOfPack",
+          "offset": 15,
+          "length": 4
+        },
+        {
+          "name": "DatiBobine_DaWinder.Yarn_Type",
+          "offset": 34,
+          "length": 12
+        },
+        {
+          "name": "DatiBobine_DaWinder.MachineName",
+          "offset": 71,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.CodeNumber",
+          "offset": 79,
+          "length": 12
+        }
+      ],
+      "udtSize": 92
+    },
+    {
+      "id": 8,
+      "code": "winder-L08",
+      "host": "192.168.5.108",
+      "winderDb": 552,
+      "winder": {
+        "schema": "even-odd-single",
+        "count": 120,
+        "udtSize": 92,
+        "stride": 106,
+        "offsetEven": 4,
+        "offsetEndEven": 10,
+        "offsetOdd": 4,
+        "offsetEndOdd": 10,
+        "sides": null
+      },
+      "fields": [
+        {
+          "name": "DatiBobine_DaWinder.POSITION_Name",
+          "offset": 0,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.Doff_No",
+          "offset": 8,
+          "length": 2
+        },
+        {
+          "name": "DatiBobine_DaWinder.EndTimeOfPack",
+          "offset": 15,
+          "length": 4
+        },
+        {
+          "name": "DatiBobine_DaWinder.Yarn_Type",
+          "offset": 34,
+          "length": 12
+        },
+        {
+          "name": "DatiBobine_DaWinder.MachineName",
+          "offset": 71,
+          "length": 8
+        },
+        {
+          "name": "DatiBobine_DaWinder.CodeNumber",
+          "offset": 79,
+          "length": 12
+        }
+      ],
+      "udtSize": 92
+    }
+  ]
+}

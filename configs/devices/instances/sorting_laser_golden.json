@@ -1,0 +1,89 @@
+{
+  "source": "O17006/setup/udt*Macsa.js + h028.sql sortings",
+  "devices": [
+    {
+      "code": "sorting-laser-6h",
+      "heads": 6,
+      "stepsPerHead": 4,
+      "db": 8012,
+      "layout": {
+        "start": 0,
+        "idModule": 12,
+        "numberModule": 16,
+        "step": 18,
+        "enabled": 20,
+        "alarm": 32,
+        "done": 48,
+        "moduleRead": 60,
+        "size": 62
+      },
+      "udtLayout": {
+        "start": 0,
+        "idModule": 12,
+        "numberModule": 16,
+        "step": 18,
+        "enabled": 20,
+        "alarm": 32,
+        "done": 48,
+        "moduleRead": 60,
+        "size": 66
+      }
+    },
+    {
+      "code": "sorting-laser-12h",
+      "heads": 12,
+      "stepsPerHead": 2,
+      "db": 8012,
+      "layout": {
+        "start": 0,
+        "idModule": 24,
+        "numberModule": 28,
+        "step": 30,
+        "enabled": 32,
+        "alarm": 56,
+        "done": 84,
+        "moduleRead": 108,
+        "size": 110
+      },
+      "udtLayout": {
+        "start": 0,
+        "idModule": 24,
+        "numberModule": 28,
+        "step": 30,
+        "enabled": 32,
+        "alarm": 56,
+        "done": 84,
+        "moduleRead": 108,
+        "size": 110
+      }
+    },
+    {
+      "code": "sorting-laser-16h",
+      "heads": 16,
+      "stepsPerHead": 2,
+      "db": 8012,
+      "layout": {
+        "start": 0,
+        "idModule": 32,
+        "numberModule": 36,
+        "step": 38,
+        "enabled": 40,
+        "alarm": 72,
+        "done": 108,
+        "moduleRead": 140,
+        "size": 142
+      },
+      "udtLayout": {
+        "start": 0,
+        "idModule": 32,
+        "numberModule": 36,
+        "step": 38,
+        "enabled": 40,
+        "alarm": 72,
+        "done": 108,
+        "moduleRead": 140,
+        "size": 146
+      }
+    }
+  ]
+}

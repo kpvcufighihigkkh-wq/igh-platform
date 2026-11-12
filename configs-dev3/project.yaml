@@ -1,0 +1,90 @@
+project:
+  name: "华祥智纤（九江）"
+  code: "HX-JJ-001"
+  customer: "华祥智纤（九江）科技有限公司"
+  timezone: "Asia/Shanghai"
+
+server:
+  http_port: 8101
+  ws_port: 8102
+  api_key: "sk-igh-dev-key-change-in-production"
+
+ha:
+  # standalone      : 单机部署，不做双机热备（默认）
+  # active-standby  : 双机热备。两台服务器都常驻运行 igh-server，
+  #                   由 keepalived 决定谁持有 VIP，进程本身不启停。
+  mode: "standalone"
+  # VIP 由 keepalived 持有，不写在这里也生效，仅用于状态展示与文档对照
+  vip: "127.0.0.1"
+  # 对端服务器地址，仅用于 /health 展示
+  peer: ""
+  heartbeat_interface: ""
+  # keepalived 的 notify 脚本写入本机角色的文件（master/backup/fault/stop）。
+  #
+  # 只有 mode=active-standby 时才读它：igh-server 每 2 秒读一次，
+  # 在 /health 的 ha.role 里如实上报。不配则用默认值 /var/lib/igh/keepalived.state。
+  #
+  # 为什么需要它：两台中心服务都在跑，配置里写死了 active-standby 并不能说明
+  # 本机此刻是否持有 VIP。不读这个文件的话，备机会误以为自己也在服务。
+  # state_file: "/var/lib/igh/keepalived.state"
+
+database:
+  # --- 单机部署：只写 host ---
+  host: "127.0.0.1"
+  port: 5432
+
+  # --- 双机热备：改用 hosts 列表，host 不再生效 ---
+  # 连接时按顺序尝试，且只接受可写的那台（target_session_attrs=read-write），
+  # 自动跳过备库与被围栏的旧主库。数据库切主后中心会自动跟过去，不需要改配置重启。
+  #
+  # hosts:
+  #   - "192.168.10.1:5432"    # 初始主库
+  #   - "192.168.10.2:5432"    # 初始备库
+  #
+  # 列表项没写端口时取下面的 port。
+  name: "igh_platform"
+  user: "igh"
+  password: "${DB_PASSWORD}"
+  max_connections: 30
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  password: ""
+
+shifts:
+  - {code: 1, name: "早班", start: "08:00", end: "15:59"}
+  - {code: 2, name: "中班", start: "16:00", end: "23:59"}
+  - {code: 3, name: "夜班", start: "00:00", end: "07:59"}
+
+lot_rules:
+  prefix_source: "settings"
+  code_format: "{prefix}{sequence}"
+  barcode_format: "YYMMDD901{seq:04d}"
+  barcode_reset: "weekly_monday"
+
+# 数据归档：把过期业务数据导出成文件后再删除。
+#
+# 默认关闭。归档会删数据，首次上线必须先 dry_run 演练一遍，
+# 确认 /api/v1/admin/archive/run?dry_run=1 报出的"会删多少"符合预期再打开。
+#
+# 保留期：落筒记录 1 年、事件队列 30 天、ERP 队列 15 天。
+# 只归档"已处理完成"的事件和"已推送"的 ERP 队列，
+# pending / failed 的留着排查问题。
+archive:
+  enabled: false
+  dir: "./archive"        # 归档文件输出目录，相对进程工作目录
+  doffing_days: 365       # doffings + 从表 bobbins
+  event_days: 30          # edge_events（仅 status=processed）
+  erp_days: 15            # erp_sync_queues（仅 status=sent）
+  hour: 3                 # 每天凌晨 3 点执行；删除会短暂持锁，避开产线高峰
+  dry_run: true           # 首次上线先置 true 跑一天，确认无误再改 false
+
+modules:
+  winding: true
+  quality: true
+  warehouse: true
+  packaging: true
+  erp: false
+  maintenance: true
+  vehicle: true

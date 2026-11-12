@@ -1,0 +1,757 @@
+{
+  "source": {
+    "loadingSequence": "Hive/DataBase/h028.sql",
+    "headMaps": "Hive/O17006/setup/udt{6,12,16}Macsa.js"
+  },
+  "loadingCapacity": 24,
+  "patterns": [
+    {
+      "code": "dx",
+      "map": [
+        {
+          "spindlePlace": 1,
+          "a": 15,
+          "b": 16
+        },
+        {
+          "spindlePlace": 2,
+          "a": 18,
+          "b": 17
+        },
+        {
+          "spindlePlace": 3,
+          "a": 23,
+          "b": 24
+        },
+        {
+          "spindlePlace": 4,
+          "a": 21,
+          "b": 22
+        },
+        {
+          "spindlePlace": 5,
+          "a": 20,
+          "b": 19
+        },
+        {
+          "spindlePlace": 6,
+          "a": 13,
+          "b": 14
+        },
+        {
+          "spindlePlace": 7,
+          "a": 1,
+          "b": 2
+        },
+        {
+          "spindlePlace": 8,
+          "a": 8,
+          "b": 7
+        },
+        {
+          "spindlePlace": 9,
+          "a": 9,
+          "b": 10
+        },
+        {
+          "spindlePlace": 10,
+          "a": 11,
+          "b": 12
+        },
+        {
+          "spindlePlace": 11,
+          "a": 6,
+          "b": 5
+        },
+        {
+          "spindlePlace": 12,
+          "a": 3,
+          "b": 4
+        }
+      ]
+    },
+    {
+      "code": "dxw",
+      "map": [
+        {
+          "spindlePlace": 1,
+          "a": 3,
+          "b": 4
+        },
+        {
+          "spindlePlace": 2,
+          "a": 6,
+          "b": 5
+        },
+        {
+          "spindlePlace": 3,
+          "a": 11,
+          "b": 12
+        },
+        {
+          "spindlePlace": 4,
+          "a": 9,
+          "b": 10
+        },
+        {
+          "spindlePlace": 5,
+          "a": 8,
+          "b": 7
+        },
+        {
+          "spindlePlace": 6,
+          "a": 1,
+          "b": 2
+        },
+        {
+          "spindlePlace": 7,
+          "a": 13,
+          "b": 14
+        },
+        {
+          "spindlePlace": 8,
+          "a": 20,
+          "b": 19
+        },
+        {
+          "spindlePlace": 9,
+          "a": 21,
+          "b": 22
+        },
+        {
+          "spindlePlace": 10,
+          "a": 23,
+          "b": 24
+        },
+        {
+          "spindlePlace": 11,
+          "a": 18,
+          "b": 17
+        },
+        {
+          "spindlePlace": 12,
+          "a": 15,
+          "b": 16
+        }
+      ]
+    },
+    {
+      "code": "fdy",
+      "map": [
+        {
+          "spindlePlace": 1,
+          "a": 1,
+          "b": 13
+        },
+        {
+          "spindlePlace": 2,
+          "a": 2,
+          "b": 14
+        },
+        {
+          "spindlePlace": 3,
+          "a": 3,
+          "b": 15
+        },
+        {
+          "spindlePlace": 4,
+          "a": 4,
+          "b": 16
+        },
+        {
+          "spindlePlace": 5,
+          "a": 5,
+          "b": 17
+        },
+        {
+          "spindlePlace": 6,
+          "a": 6,
+          "b": 18
+        },
+        {
+          "spindlePlace": 7,
+          "a": 7,
+          "b": 19
+        },
+        {
+          "spindlePlace": 8,
+          "a": 8,
+          "b": 20
+        },
+        {
+          "spindlePlace": 9,
+          "a": 9,
+          "b": 21
+        },
+        {
+          "spindlePlace": 10,
+          "a": 10,
+          "b": 22
+        },
+        {
+          "spindlePlace": 11,
+          "a": 11,
+          "b": 23
+        },
+        {
+          "spindlePlace": 12,
+          "a": 12,
+          "b": 24
+        }
+      ]
+    },
+    {
+      "code": "sx",
+      "map": [
+        {
+          "spindlePlace": 1,
+          "a": 1,
+          "b": 13
+        },
+        {
+          "spindlePlace": 2,
+          "a": 2,
+          "b": 14
+        },
+        {
+          "spindlePlace": 3,
+          "a": 3,
+          "b": 15
+        },
+        {
+          "spindlePlace": 4,
+          "a": 4,
+          "b": 16
+        },
+        {
+          "spindlePlace": 5,
+          "a": 5,
+          "b": 17
+        },
+        {
+          "spindlePlace": 6,
+          "a": 6,
+          "b": 18
+        },
+        {
+          "spindlePlace": 7,
+          "a": 7,
+          "b": 19
+        },
+        {
+          "spindlePlace": 8,
+          "a": 8,
+          "b": 20
+        },
+        {
+          "spindlePlace": 9,
+          "a": 9,
+          "b": 21
+        },
+        {
+          "spindlePlace": 10,
+          "a": 10,
+          "b": 22
+        },
+        {
+          "spindlePlace": 11,
+          "a": 11,
+          "b": 23
+        },
+        {
+          "spindlePlace": 12,
+          "a": 12,
+          "b": 24
+        }
+      ]
+    },
+    {
+      "code": "sxw",
+      "map": [
+        {
+          "spindlePlace": 1,
+          "a": 1,
+          "b": 2
+        },
+        {
+          "spindlePlace": 2,
+          "a": 8,
+          "b": 7
+        },
+        {
+          "spindlePlace": 3,
+          "a": 9,
+          "b": 10
+        },
+        {
+          "spindlePlace": 4,
+          "a": 11,
+          "b": 12
+        },
+        {
+          "spindlePlace": 5,
+          "a": 6,
+          "b": 5
+        },
+        {
+          "spindlePlace": 6,
+          "a": 3,
+          "b": 4
+        },
+        {
+          "spindlePlace": 7,
+          "a": 15,
+          "b": 16
+        },
+        {
+          "spindlePlace": 8,
+          "a": 18,
+          "b": 17
+        },
+        {
+          "spindlePlace": 9,
+          "a": 23,
+          "b": 24
+        },
+        {
+          "spindlePlace": 10,
+          "a": 21,
+          "b": 22
+        },
+        {
+          "spindlePlace": 11,
+          "a": 20,
+          "b": 19
+        },
+        {
+          "spindlePlace": 12,
+          "a": 13,
+          "b": 14
+        }
+      ]
+    }
+  ],
+  "headMaps": [
+    {
+      "headCount": 6,
+      "stepsPerHead": 4,
+      "capacity": 24,
+      "entries": [
+        {
+          "head": 1,
+          "step": 1,
+          "position": 1
+        },
+        {
+          "head": 1,
+          "step": 2,
+          "position": 2
+        },
+        {
+          "head": 1,
+          "step": 3,
+          "position": 3
+        },
+        {
+          "head": 1,
+          "step": 4,
+          "position": 4
+        },
+        {
+          "head": 2,
+          "step": 1,
+          "position": 8
+        },
+        {
+          "head": 2,
+          "step": 2,
+          "position": 7
+        },
+        {
+          "head": 2,
+          "step": 3,
+          "position": 6
+        },
+        {
+          "head": 2,
+          "step": 4,
+          "position": 5
+        },
+        {
+          "head": 3,
+          "step": 1,
+          "position": 9
+        },
+        {
+          "head": 3,
+          "step": 2,
+          "position": 10
+        },
+        {
+          "head": 3,
+          "step": 3,
+          "position": 11
+        },
+        {
+          "head": 3,
+          "step": 4,
+          "position": 12
+        },
+        {
+          "head": 4,
+          "step": 1,
+          "position": 16
+        },
+        {
+          "head": 4,
+          "step": 2,
+          "position": 15
+        },
+        {
+          "head": 4,
+          "step": 3,
+          "position": 14
+        },
+        {
+          "head": 4,
+          "step": 4,
+          "position": 13
+        },
+        {
+          "head": 5,
+          "step": 1,
+          "position": 17
+        },
+        {
+          "head": 5,
+          "step": 2,
+          "position": 18
+        },
+        {
+          "head": 5,
+          "step": 3,
+          "position": 19
+        },
+        {
+          "head": 5,
+          "step": 4,
+          "position": 20
+        },
+        {
+          "head": 6,
+          "step": 1,
+          "position": 24
+        },
+        {
+          "head": 6,
+          "step": 2,
+          "position": 23
+        },
+        {
+          "head": 6,
+          "step": 3,
+          "position": 22
+        },
+        {
+          "head": 6,
+          "step": 4,
+          "position": 21
+        }
+      ]
+    },
+    {
+      "headCount": 12,
+      "stepsPerHead": 2,
+      "capacity": 24,
+      "entries": [
+        {
+          "head": 1,
+          "step": 1,
+          "position": 3
+        },
+        {
+          "head": 1,
+          "step": 2,
+          "position": 4
+        },
+        {
+          "head": 2,
+          "step": 1,
+          "position": 6
+        },
+        {
+          "head": 2,
+          "step": 2,
+          "position": 5
+        },
+        {
+          "head": 3,
+          "step": 1,
+          "position": 11
+        },
+        {
+          "head": 3,
+          "step": 2,
+          "position": 12
+        },
+        {
+          "head": 4,
+          "step": 1,
+          "position": 14
+        },
+        {
+          "head": 4,
+          "step": 2,
+          "position": 13
+        },
+        {
+          "head": 5,
+          "step": 1,
+          "position": 19
+        },
+        {
+          "head": 5,
+          "step": 2,
+          "position": 20
+        },
+        {
+          "head": 6,
+          "step": 1,
+          "position": 22
+        },
+        {
+          "head": 6,
+          "step": 2,
+          "position": 21
+        },
+        {
+          "head": 7,
+          "step": 1,
+          "position": 1
+        },
+        {
+          "head": 7,
+          "step": 2,
+          "position": 2
+        },
+        {
+          "head": 8,
+          "step": 1,
+          "position": 8
+        },
+        {
+          "head": 8,
+          "step": 2,
+          "position": 7
+        },
+        {
+          "head": 9,
+          "step": 1,
+          "position": 9
+        },
+        {
+          "head": 9,
+          "step": 2,
+          "position": 10
+        },
+        {
+          "head": 10,
+          "step": 1,
+          "position": 16
+        },
+        {
+          "head": 10,
+          "step": 2,
+          "position": 15
+        },
+        {
+          "head": 11,
+          "step": 1,
+          "position": 17
+        },
+        {
+          "head": 11,
+          "step": 2,
+          "position": 18
+        },
+        {
+          "head": 12,
+          "step": 1,
+          "position": 24
+        },
+        {
+          "head": 12,
+          "step": 2,
+          "position": 23
+        }
+      ]
+    },
+    {
+      "headCount": 16,
+      "stepsPerHead": 2,
+      "capacity": 32,
+      "entries": [
+        {
+          "head": 1,
+          "step": 1,
+          "position": 3
+        },
+        {
+          "head": 1,
+          "step": 2,
+          "position": 4
+        },
+        {
+          "head": 2,
+          "step": 1,
+          "position": 6
+        },
+        {
+          "head": 2,
+          "step": 2,
+          "position": 5
+        },
+        {
+          "head": 3,
+          "step": 1,
+          "position": 11
+        },
+        {
+          "head": 3,
+          "step": 2,
+          "position": 12
+        },
+        {
+          "head": 4,
+          "step": 1,
+          "position": 14
+        },
+        {
+          "head": 4,
+          "step": 2,
+          "position": 13
+        },
+        {
+          "head": 5,
+          "step": 1,
+          "position": 18
+        },
+        {
+          "head": 5,
+          "step": 2,
+          "position": 17
+        },
+        {
+          "head": 6,
+          "step": 1,
+          "position": 23
+        },
+        {
+          "head": 6,
+          "step": 2,
+          "position": 24
+        },
+        {
+          "head": 7,
+          "step": 1,
+          "position": 26
+        },
+        {
+          "head": 7,
+          "step": 2,
+          "position": 25
+        },
+        {
+          "head": 8,
+          "step": 1,
+          "position": 31
+        },
+        {
+          "head": 8,
+          "step": 2,
+          "position": 32
+        },
+        {
+          "head": 9,
+          "step": 1,
+          "position": 1
+        },
+        {
+          "head": 9,
+          "step": 2,
+          "position": 2
+        },
+        {
+          "head": 10,
+          "step": 1,
+          "position": 8
+        },
+        {
+          "head": 10,
+          "step": 2,
+          "position": 7
+        },
+        {
+          "head": 11,
+          "step": 1,
+          "position": 9
+        },
+        {
+          "head": 11,
+          "step": 2,
+          "position": 10
+        },
+        {
+          "head": 12,
+          "step": 1,
+          "position": 16
+        },
+        {
+          "head": 12,
+          "step": 2,
+          "position": 15
+        },
+        {
+          "head": 13,
+          "step": 1,
+          "position": 20
+        },
+        {
+          "head": 13,
+          "step": 2,
+          "position": 19
+        },
+        {
+          "head": 14,
+          "step": 1,
+          "position": 21
+        },
+        {
+          "head": 14,
+          "step": 2,
+          "position": 22
+        },
+        {
+          "head": 15,
+          "step": 1,
+          "position": 28
+        },
+        {
+          "head": 15,
+          "step": 2,
+          "position": 27
+        },
+        {
+          "head": 16,
+          "step": 1,
+          "position": 29
+        },
+        {
+          "head": 16,
+          "step": 2,
+          "position": 30
+        }
+      ]
+    }
+  ]
+}

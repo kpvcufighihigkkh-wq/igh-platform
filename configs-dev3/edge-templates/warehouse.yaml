@@ -1,0 +1,47 @@
+# IGH Edge 配置模板 — 仓库站 (Warehouse Station)
+# 复制此文件为 edge.yaml 并修改实际参数
+
+edge:
+  id: "edge-warehouse-01"     # 唯一节点标识
+  type: "warehouse"             # 站点类型: warehouse
+  data_dir: "./data"
+
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+  server:
+    url: "http://192.168.1.100:8099"
+    api_key: "sk-igh-change-in-production"
+    heartbeat_sec: 10
+    sync_interval_sec: 60       # 仓库数据变化频率低，同步间隔可以加长
+
+  plc:
+    poll_interval_ms: 2000      # 仓库设备轮询频率较低
+    devices:
+      # 仓库管理 PLC (如有自动化立库)
+      # - code: "plc-wh-01"
+      #   model: "warehouse_controller"
+      #   host: "192.168.4.10"
+      #   port: 102
+      #   rack: 0
+      #   slot: 1
+      #   protocol: "s7"
+      #   read_blocks:
+      #     - { db: 1, start: 0, size: 50, tag: "status" }
+
+  printers:
+    # 仓库标签打印机
+    - code: "label-wh-01"
+      host: "192.168.4.50"
+      port: 9100
+
+  ha:
+    mode: "standalone"
+    peer: ""
+    vip: ""
+    priority: 100
+
+  line:
+    code: "WH01"
+    name: "Warehouse 01"

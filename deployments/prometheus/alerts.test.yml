@@ -1,0 +1,281 @@
+# alerts.yml 的单元测试（promtool test rules）
+#
+# 为什么需要这个文件：PromQL 写错时不会报错，只会让告警**静默不触发**，
+# 或者**永久误报**。语法检查（promtool check rules）完全查不出这类问题——
+# 它只验证 YAML 与表达式能解析，不验证语义。
+#
+# 本文件实测抓到过以下两个真实缺陷（已修）：
+#   1. IghNoIncomingTraffic 原先没排除 /metrics，而 Prometheus 每 15 秒
+#      抓一次 /metrics 也会计入 igh_http_requests_total，导致 rate 永远 > 0，
+#      规则永远不触发。
+#   2. IghEdgeHeartbeatStopped 的守卫原先用 `unless (全站流量 == 0)`，
+#      心跳停但其它流量正常时守卫恒为假、告警被吃掉，规则同样永不触发。
+#
+# 本地运行：
+#   promtool test rules deployments/prometheus/alerts.test.yml
+# 或在容器里（CI 用的就是这个）：
+#   docker run --rm \
+#     -v "$PWD/deployments/prometheus:/etc/prometheus:ro" \
+#     --entrypoint promtool prom/prometheus:v2.53.0 \
+#     test rules /etc/prometheus/alerts.test.yml
+#
+# 规则文件路径用相对/容器内路径：CI 把 deployments/prometheus 挂到
+# /etc/prometheus，所以这里写 /etc/prometheus/alerts.yml。
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ==========================================================================
+  # 无业务流量
+  # ==========================================================================
+  # 场景：只有 Prometheus 自抓 /metrics，没有任何业务请求。
+  # 期望：告警。这正是"服务收不到业务流量"的定义。
+  - interval: 1m
+    input_series:
+      - series: 'igh_http_requests_total{method="GET",path="/metrics",status="200"}'
+        values: '0+20x40'
+      - series: 'up{job="igh-server",instance="a:8099"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghNoIncomingTraffic
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: center
+            exp_annotations:
+              summary: "中心服务 10 分钟无任何业务 HTTP 流量"
+              description: "进程存活但 5 分钟内没有业务请求（已排除 /metrics、/health）。检查 VIP/反向代理是否指向了别的节点，或前端是否整体不可达。"
+
+  # 场景：业务请求正常增长。
+  # 期望：不告警。验证 /metrics 排除逻辑没有造成误报。
+  - interval: 1m
+    input_series:
+      - series: 'igh_http_requests_total{method="GET",path="/metrics",status="200"}'
+        values: '0+20x40'
+      - series: 'igh_http_requests_total{method="GET",path="/api/v1/orders",status="200"}'
+        values: '0+20x40'
+      - series: 'up{job="igh-server",instance="a:8099"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghNoIncomingTraffic
+        exp_alerts: []
+
+  # ==========================================================================
+  # 边端心跳
+  # ==========================================================================
+  # 场景：其它业务流量正常，心跳 5 分钟后彻底停止。
+  # 期望：告警。这是最关键的用例——守卫条件写错时这里会不通过。
+  - interval: 1m
+    input_series:
+      - series: 'igh_http_requests_total{method="GET",path="/api/v1/orders",status="200"}'
+        values: '0+20x40'
+      - series: 'igh_http_requests_total{method="POST",path="/api/v1/edge/heartbeat",status="200"}'
+        values: '0+10x5'
+      - series: 'up{job="igh-server",instance="a:8099"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghEdgeHeartbeatStopped
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              component: edge
+            exp_annotations:
+              summary: "边端心跳已中断 10 分钟以上"
+              description: "中心服务仍在处理其它请求，但已连续 10 分钟没有收到任何边端心跳。检查边端 PC 是否在线、到中心的网络是否连通、边端进程是否存活。"
+
+  # 场景：心跳持续上报。
+  # 期望：不告警。
+  - interval: 1m
+    input_series:
+      - series: 'igh_http_requests_total{method="POST",path="/api/v1/edge/heartbeat",status="200"}'
+        values: '0+10x40'
+      - series: 'up{job="igh-server",instance="a:8099"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghEdgeHeartbeatStopped
+        exp_alerts: []
+
+  # ==========================================================================
+  # 边端上传
+  # ==========================================================================
+  # 场景：心跳正常，只有前 5 分钟有上传，之后上传停止。
+  # 期望：eval_time 需超过 for: 30m + 上传停止后的 15m 窗口。
+  - interval: 1m
+    input_series:
+      - series: 'igh_http_requests_total{method="POST",path="/api/v1/edge/heartbeat",status="200"}'
+        values: '0+10x60'
+      - series: 'igh_http_requests_total{method="POST",path="/api/v1/edge/upload",status="200"}'
+        values: '0+10x5'
+      - series: 'up{job="igh-server",instance="a:8099"}'
+        values: '1x60'
+    alert_rule_test:
+      - eval_time: 55m
+        alertname: IghEdgeUploadStopped
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: edge
+            exp_annotations:
+              summary: "边端心跳正常但数据上传已停止 15 分钟"
+              description: "边端仍在发心跳，但 upload/upload.batch 均无请求。检查边端队列（EdgeNode.queue_depth）、PLC 采集状态与插件运行日志。"
+
+  # 场景：心跳和上传一起停了。
+  # 期望：上传告警不额外触发，避免同一故障响两条（交给心跳那条报）。
+  - interval: 1m
+    input_series:
+      - series: 'igh_http_requests_total{method="POST",path="/api/v1/edge/heartbeat",status="200"}'
+        values: '0+10x5'
+      - series: 'igh_http_requests_total{method="POST",path="/api/v1/edge/upload",status="200"}'
+        values: '0+10x5'
+      - series: 'up{job="igh-server",instance="a:8099"}'
+        values: '1x60'
+    alert_rule_test:
+      - eval_time: 55m
+        alertname: IghEdgeUploadStopped
+        exp_alerts: []
+
+  # ==========================================================================
+  # HTTP 5xx
+  # ==========================================================================
+  # 场景：某接口 20% 请求是 5xx。
+  # 期望：告警，且 labels 里带出 path，方便直接定位接口。
+  - interval: 1m
+    input_series:
+      - series: 'igh_http_requests_total{method="GET",path="/api/v1/orders",status="200"}'
+        values: '0+80x40'
+      - series: 'igh_http_requests_total{method="GET",path="/api/v1/orders",status="500"}'
+        values: '0+20x40'
+      - series: 'up{job="igh-server",instance="a:8099"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghHTTP5xxRateHigh
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              component: center
+              path: "/api/v1/orders"
+            exp_annotations:
+              summary: "接口 /api/v1/orders 5xx 比例超过 5%"
+              description: "/api/v1/orders 最近 5 分钟服务端错误率 20%。先看服务日志里该接口的 error 行，再确认数据库是否可写（/health 的 database.healthy）。"
+
+  # 场景：5xx 只有 1%。
+  # 期望：不告警。防止阈值写错成 0.5 之类的低级错误。
+  - interval: 1m
+    input_series:
+      - series: 'igh_http_requests_total{method="GET",path="/api/v1/orders",status="200"}'
+        values: '0+99x40'
+      - series: 'igh_http_requests_total{method="GET",path="/api/v1/orders",status="500"}'
+        values: '0+1x40'
+      - series: 'up{job="igh-server",instance="a:8099"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghHTTP5xxRateHigh
+        exp_alerts: []
+
+  # ==========================================================================
+  # 实例存活
+  # ==========================================================================
+  # 场景：两台中心，一台抓不到了。
+  # 期望：IghServerDown 只对那一台触发，IghAllCenterInstancesDown 不触发。
+  - interval: 1m
+    input_series:
+      - series: 'up{job="igh-server",instance="192.168.10.1:8099"}'
+        values: '1x40'
+      - series: 'up{job="igh-server",instance="192.168.10.2:8099"}'
+        values: '1x5 0x35'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghServerDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              component: center
+              job: igh-server
+              instance: "192.168.10.2:8099"
+            exp_annotations:
+              summary: "中心服务实例 192.168.10.2:8099 已宕机"
+              description: "192.168.10.2:8099 的 /metrics 抓取失败超过 1 分钟。检查进程是否存活、端口 8099 是否监听、是否有防火墙拦截。"
+      - eval_time: 30m
+        alertname: IghAllCenterInstancesDown
+        exp_alerts: []
+
+  # 场景：两台都挂。
+  # 期望：两条都触发。
+  - interval: 1m
+    input_series:
+      - series: 'up{job="igh-server",instance="192.168.10.1:8099"}'
+        values: '1x5 0x35'
+      - series: 'up{job="igh-server",instance="192.168.10.2:8099"}'
+        values: '1x5 0x35'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghAllCenterInstancesDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              component: center
+            exp_annotations:
+              summary: "所有中心服务实例均不可用"
+              description: "igh-server 的所有抓取目标都抓不到 /metrics，业务已整体中断。立即检查 VIP 是否漂移到了无服务的节点、以及两台机器的进程状态。"
+
+  # ==========================================================================
+  # 运行态资源（标准指标 go_* / process_*）
+  # ==========================================================================
+  # 场景：常驻内存 572MB，超过 500MB 阈值。
+  # 期望：触发。注意 exp_annotations 必须与 humanize1024 的实际输出一致，
+  # 改阈值后要同步更新这里的文本，否则测试会失败（这本身是一种保护）。
+  - interval: 1m
+    input_series:
+      - series: 'process_resident_memory_bytes{job="igh-server",instance="a:8099"}'
+        values: '600000000x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghHighMemoryUsage
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: center
+              job: igh-server
+              instance: "a:8099"
+            exp_annotations:
+              summary: "中心服务内存占用超过 500MB（a:8099）"
+              description: "常驻内存 572.2MiB，持续 15 分钟。检查是否有 goroutine 泄漏或大结果集未释放。"
+
+  # 场景：内存 50MB，正常。
+  # 期望：不触发。
+  - interval: 1m
+    input_series:
+      - series: 'process_resident_memory_bytes{job="igh-server",instance="a:8099"}'
+        values: '50000000x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: IghHighMemoryUsage
+        exp_alerts: []
+
+  # 场景：1 小时内进程启动时间变化 4 次（崩溃循环）。
+  # 期望：触发。这类故障的 up 指标可能一直是 1，
+  # 不靠 changes(process_start_time_seconds) 根本发现不了。
+  - interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{job="igh-server",instance="a:8099"}'
+        values: '1000x5 2000x5 3000x5 4000x5 5000x40'
+    alert_rule_test:
+      - eval_time: 55m
+        alertname: IghServerRestarting
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: center
+              job: igh-server
+              instance: "a:8099"
+            exp_annotations:
+              summary: "中心服务 1 小时内重启超过 2 次（a:8099）"
+              description: "进程启动时间在 1 小时内变化了 4 次。查看服务日志中的 panic / fatal 记录，以及 systemd/Windows 服务的事件日志。"

@@ -1,0 +1,68 @@
+# 中心双机热备配置示例 —— 把本文件的内容合并进各自的 configs/project.yaml
+#
+# 拓扑（2 台服务器 + 1 台见证节点）：
+#   服务器1  192.168.10.1   igh-server + PG主库 + hactl(server-a) + keepalived MASTER
+#   服务器2  192.168.10.2   igh-server + PG备库 + hactl(server-b) + keepalived BACKUP
+#   见证节点 192.168.10.31  只跑 etcd（可复用某台边端 PC）
+#
+# 两台服务器上的 project.yaml 内容几乎一样，只有两处不同：
+#   - server.http_port 相同（都监听本机，VIP 漂移后由 VIP 对外）
+#   - 两台都配 database.hosts 全列表，不区分主备 —— 靠 target_session_attrs
+#     自动选可写的那台，切主后自动跟过去
+#
+# 前提清单（缺一不可）：
+#   1. 3 个 etcd 节点（configs/ha/cluster.yaml）
+#   2. PostgreSQL 主备同步复制，synchronous_commit = remote_apply
+#   3. 两台各跑一份 hactl -run
+#   4. 两台各装 keepalived（deployments/keepalived.conf）
+#   5. 两台各装 igh-server 服务（deploy/linux/igh-server.service）
+
+server:
+  http_port: 8101
+  ws_port: 8102
+  api_key: "<换成现场随机字符串，两台必须一致>"
+
+ha:
+  # 关键：两台都写 active-standby。真正的角色由 keepalived 状态文件决定，
+  # 不由这个字段决定 —— 它只表示"本部署参与双机"
+  mode: "active-standby"
+  # 仅用于 /health 展示，VIP 的实际持有者是 keepalived
+  vip: "192.168.10.100"
+  peer: "<对端服务器 IP>"
+  heartbeat_interface: "<网卡名，如 eth0>"
+  # keepalived notify 脚本写入本机角色；不配则用 /var/lib/igh/keepalived.state
+  state_file: "/var/lib/igh/keepalived.state"
+
+database:
+  # 两台服务器写同一个列表，顺序无所谓：连接时会逐个尝试并只接受可写节点
+  hosts:
+    - "192.168.10.1:5432"
+    - "192.168.10.2:5432"
+  port: 5432                  # 列表项没写端口时的缺省值
+  name: "igh_platform"
+  user: "igh"
+  password: "${DB_PASSWORD}"
+  max_connections: 30
+
+# 验证方式（部署完成后依次执行，全部通过才算配好）：
+#
+#   1. 数据库主备与同步复制
+#      docker exec <pg> psql -U igh -d igh_platform \
+#        -c "SELECT client_addr,state,sync_state FROM pg_stat_replication;"
+#      期望 sync_state = sync
+#
+#   2. 仲裁进程
+#      ./bin/hactl -config configs/ha/cluster.yaml -node server-a -status
+#      期望 leader 是自己、database 显示 primary
+#
+#   3. 中心健康
+#      curl http://<本机IP>:8101/health
+#      期望 "database":{"healthy":true,"primary":"..."} 且 "ha":{"source":"keepalived"}
+#
+#   4. VIP 归属
+#      ip addr show <网卡>        # VIP 只应出现在一台机器上
+#
+#   5. 切换演练
+#      在主库机器上 systemctl stop postgresql
+#      期望 10 秒内：备库提升为主库、VIP 漂移到另一台、
+#      原主机的 /health 显示 ha.role=standby、database.primary 指向新主库

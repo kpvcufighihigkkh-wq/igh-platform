@@ -1,0 +1,305 @@
+# 由 tools/plcgen/extract.js 从 Hive/DataBase/h028.sql 与 O17004 UDT 生成，请勿手改。
+# 生成器遇到歧义会拒绝输出该线路，原因见 SKIPPED.md。
+devices:
+  - code: "winder-L01"
+    model: "tmt_winder"
+    host: "192.168.5.101"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "01线 / fdy / TMT"
+    twin:
+      udt_size: 92
+      stride: 198
+      count: 24
+      offset_even: 96
+      offset_end_even: 10
+      offset_odd: 4
+      offset_end_odd: 102
+      sides:
+        left:  { offset: 96 }
+        right: { offset: 4 }
+      semantics: "来自 h028.sql spinning_sides.settings.plc.dbs.Winder；两侧收敛于同一 stride，左=Even、右=Odd 为约定，需现场核对标签左右。"
+    poll_groups:
+      - name: "winder_data"
+        interval_ms: 500
+        db: 555
+        start: 0
+        length: 4752
+        repeat:
+          count: 24
+          stride: 198
+          sides:
+            left:  { offset: 96 }
+            right: { offset: 4 }
+        points:
+          - { name: "DatiBobine_DaWinder.POSITION_Name", offset: 0, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.Doff_No", offset: 8, type: "uint16", direction: "read" }
+          - { name: "DatiBobine_DaWinder.EndTimeOfPack", offset: 15, type: "uint32", direction: "read" }
+          - { name: "DatiBobine_DaWinder.Yarn_Type", offset: 34, type: "string", length: 12, direction: "read" }
+          - { name: "DatiBobine_DaWinder.MachineName", offset: 71, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.CodeNumber", offset: 79, type: "string", length: 12, direction: "read" }
+  - code: "winder-L02"
+    model: "tmt_winder"
+    host: "192.168.5.102"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "02线 / fdy / TMT"
+    twin:
+      udt_size: 92
+      stride: 198
+      count: 24
+      offset_even: 96
+      offset_end_even: 10
+      offset_odd: 4
+      offset_end_odd: 102
+      sides:
+        left:  { offset: 96 }
+        right: { offset: 4 }
+      semantics: "来自 h028.sql spinning_sides.settings.plc.dbs.Winder；两侧收敛于同一 stride，左=Even、右=Odd 为约定，需现场核对标签左右。"
+    poll_groups:
+      - name: "winder_data"
+        interval_ms: 500
+        db: 555
+        start: 0
+        length: 4752
+        repeat:
+          count: 24
+          stride: 198
+          sides:
+            left:  { offset: 96 }
+            right: { offset: 4 }
+        points:
+          - { name: "DatiBobine_DaWinder.POSITION_Name", offset: 0, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.Doff_No", offset: 8, type: "uint16", direction: "read" }
+          - { name: "DatiBobine_DaWinder.EndTimeOfPack", offset: 15, type: "uint32", direction: "read" }
+          - { name: "DatiBobine_DaWinder.Yarn_Type", offset: 34, type: "string", length: 12, direction: "read" }
+          - { name: "DatiBobine_DaWinder.MachineName", offset: 71, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.CodeNumber", offset: 79, type: "string", length: 12, direction: "read" }
+  - code: "winder-L03"
+    model: "tmt_winder"
+    host: "192.168.5.103"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "03线 / fdy / TMT"
+    twin:
+      udt_size: 92
+      stride: 198
+      count: 24
+      offset_even: 96
+      offset_end_even: 10
+      offset_odd: 4
+      offset_end_odd: 102
+      sides:
+        left:  { offset: 96 }
+        right: { offset: 4 }
+      semantics: "来自 h028.sql spinning_sides.settings.plc.dbs.Winder；两侧收敛于同一 stride，左=Even、右=Odd 为约定，需现场核对标签左右。"
+    poll_groups:
+      - name: "winder_data"
+        interval_ms: 500
+        db: 555
+        start: 0
+        length: 4752
+        repeat:
+          count: 24
+          stride: 198
+          sides:
+            left:  { offset: 96 }
+            right: { offset: 4 }
+        points:
+          - { name: "DatiBobine_DaWinder.POSITION_Name", offset: 0, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.Doff_No", offset: 8, type: "uint16", direction: "read" }
+          - { name: "DatiBobine_DaWinder.EndTimeOfPack", offset: 15, type: "uint32", direction: "read" }
+          - { name: "DatiBobine_DaWinder.Yarn_Type", offset: 34, type: "string", length: 12, direction: "read" }
+          - { name: "DatiBobine_DaWinder.MachineName", offset: 71, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.CodeNumber", offset: 79, type: "string", length: 12, direction: "read" }
+  - code: "winder-L04"
+    model: "tmt_winder"
+    host: "192.168.5.104"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "04线 / fdy / TMT"
+    twin:
+      udt_size: 92
+      stride: 198
+      count: 24
+      offset_even: 96
+      offset_end_even: 10
+      offset_odd: 4
+      offset_end_odd: 102
+      sides:
+        left:  { offset: 96 }
+        right: { offset: 4 }
+      semantics: "来自 h028.sql spinning_sides.settings.plc.dbs.Winder；两侧收敛于同一 stride，左=Even、右=Odd 为约定，需现场核对标签左右。"
+    poll_groups:
+      - name: "winder_data"
+        interval_ms: 500
+        db: 555
+        start: 0
+        length: 4752
+        repeat:
+          count: 24
+          stride: 198
+          sides:
+            left:  { offset: 96 }
+            right: { offset: 4 }
+        points:
+          - { name: "DatiBobine_DaWinder.POSITION_Name", offset: 0, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.Doff_No", offset: 8, type: "uint16", direction: "read" }
+          - { name: "DatiBobine_DaWinder.EndTimeOfPack", offset: 15, type: "uint32", direction: "read" }
+          - { name: "DatiBobine_DaWinder.Yarn_Type", offset: 34, type: "string", length: 12, direction: "read" }
+          - { name: "DatiBobine_DaWinder.MachineName", offset: 71, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.CodeNumber", offset: 79, type: "string", length: 12, direction: "read" }
+  - code: "winder-L05"
+    model: "tmt_winder"
+    host: "192.168.5.105"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "05线 / fdy / TMT"
+    twin:
+      udt_size: 92
+      stride: 198
+      count: 24
+      offset_even: 96
+      offset_end_even: 10
+      offset_odd: 4
+      offset_end_odd: 102
+      sides:
+        left:  { offset: 96 }
+        right: { offset: 4 }
+      semantics: "来自 h028.sql spinning_sides.settings.plc.dbs.Winder；两侧收敛于同一 stride，左=Even、右=Odd 为约定，需现场核对标签左右。"
+    poll_groups:
+      - name: "winder_data"
+        interval_ms: 500
+        db: 555
+        start: 0
+        length: 4752
+        repeat:
+          count: 24
+          stride: 198
+          sides:
+            left:  { offset: 96 }
+            right: { offset: 4 }
+        points:
+          - { name: "DatiBobine_DaWinder.POSITION_Name", offset: 0, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.Doff_No", offset: 8, type: "uint16", direction: "read" }
+          - { name: "DatiBobine_DaWinder.EndTimeOfPack", offset: 15, type: "uint32", direction: "read" }
+          - { name: "DatiBobine_DaWinder.Yarn_Type", offset: 34, type: "string", length: 12, direction: "read" }
+          - { name: "DatiBobine_DaWinder.MachineName", offset: 71, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.CodeNumber", offset: 79, type: "string", length: 12, direction: "read" }
+  - code: "winder-L06"
+    model: "tmt_winder"
+    host: "192.168.5.106"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "06线 / fdy / TMT"
+    twin:
+      udt_size: 92
+      stride: 198
+      count: 24
+      offset_even: 96
+      offset_end_even: 10
+      offset_odd: 4
+      offset_end_odd: 102
+      sides:
+        left:  { offset: 96 }
+        right: { offset: 4 }
+      semantics: "来自 h028.sql spinning_sides.settings.plc.dbs.Winder；两侧收敛于同一 stride，左=Even、右=Odd 为约定，需现场核对标签左右。"
+    poll_groups:
+      - name: "winder_data"
+        interval_ms: 500
+        db: 555
+        start: 0
+        length: 4752
+        repeat:
+          count: 24
+          stride: 198
+          sides:
+            left:  { offset: 96 }
+            right: { offset: 4 }
+        points:
+          - { name: "DatiBobine_DaWinder.POSITION_Name", offset: 0, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.Doff_No", offset: 8, type: "uint16", direction: "read" }
+          - { name: "DatiBobine_DaWinder.EndTimeOfPack", offset: 15, type: "uint32", direction: "read" }
+          - { name: "DatiBobine_DaWinder.Yarn_Type", offset: 34, type: "string", length: 12, direction: "read" }
+          - { name: "DatiBobine_DaWinder.MachineName", offset: 71, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.CodeNumber", offset: 79, type: "string", length: 12, direction: "read" }
+  - code: "winder-L07"
+    model: "tmt_winder"
+    host: "192.168.5.107"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "07线 / fdy / TMT"
+    twin:
+      udt_size: 92
+      stride: 106
+      count: 120
+      offset_even: 4
+      offset_end_even: 10
+      offset_odd: 4
+      offset_end_odd: 10
+      sides: null
+      semantics: "来自 h028.sql spinning_sides.settings.plc.dbs.Winder；offsetEven 与 offsetOdd 相同，判定为单面锭位（无左右之分），每个 stride 是一个独立机位。"
+    poll_groups:
+      - name: "winder_data"
+        interval_ms: 500
+        db: 552
+        start: 0
+        length: 12720
+        repeat:
+          count: 120
+          stride: 106
+        points:
+          - { name: "DatiBobine_DaWinder.POSITION_Name", offset: 0, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.Doff_No", offset: 8, type: "uint16", direction: "read" }
+          - { name: "DatiBobine_DaWinder.EndTimeOfPack", offset: 15, type: "uint32", direction: "read" }
+          - { name: "DatiBobine_DaWinder.Yarn_Type", offset: 34, type: "string", length: 12, direction: "read" }
+          - { name: "DatiBobine_DaWinder.MachineName", offset: 71, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.CodeNumber", offset: 79, type: "string", length: 12, direction: "read" }
+  - code: "winder-L08"
+    model: "tmt_winder"
+    host: "192.168.5.108"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "08线 / fdy / TMT"
+    twin:
+      udt_size: 92
+      stride: 106
+      count: 120
+      offset_even: 4
+      offset_end_even: 10
+      offset_odd: 4
+      offset_end_odd: 10
+      sides: null
+      semantics: "来自 h028.sql spinning_sides.settings.plc.dbs.Winder；offsetEven 与 offsetOdd 相同，判定为单面锭位（无左右之分），每个 stride 是一个独立机位。"
+    poll_groups:
+      - name: "winder_data"
+        interval_ms: 500
+        db: 552
+        start: 0
+        length: 12720
+        repeat:
+          count: 120
+          stride: 106
+        points:
+          - { name: "DatiBobine_DaWinder.POSITION_Name", offset: 0, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.Doff_No", offset: 8, type: "uint16", direction: "read" }
+          - { name: "DatiBobine_DaWinder.EndTimeOfPack", offset: 15, type: "uint32", direction: "read" }
+          - { name: "DatiBobine_DaWinder.Yarn_Type", offset: 34, type: "string", length: 12, direction: "read" }
+          - { name: "DatiBobine_DaWinder.MachineName", offset: 71, type: "string", length: 8, direction: "read" }
+          - { name: "DatiBobine_DaWinder.CodeNumber", offset: 79, type: "string", length: 12, direction: "read" }

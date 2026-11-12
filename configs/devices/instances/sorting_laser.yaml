@@ -1,0 +1,181 @@
+# 由 tools/plcgen/sorting.js 从 O17006/setup/udt*Macsa.js 生成，请勿手改。
+# 现场修改请通过中心"现场配置"页面：这份文件只作为初始导入数据。
+# 主机与 DB 号来自 h028.sql sortings.settings.plc.dbs.Sorting（外检1）。
+devices:
+  - code: "sorting-laser-6h"
+    model: "macsa_winder"
+    host: "192.168.5.111"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "外检打标机 6 头（Macsa，DB8012）"
+    poll_groups:
+      - name: "laser_start"
+        db: 8012
+        start: 0
+        length: 12
+        repeat:
+          count: 6
+          stride: 2
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Start", type: "int16", direction: "read" }
+      - name: "laser_ctrl"
+        db: 8012
+        start: 12
+        length: 8
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Id_Module", offset: 0, type: "int32", direction: "read" }
+          - { name: "PLC_to_PC.LaserPrinter.NumberModule", offset: 4, type: "int16", direction: "read" }
+          - { name: "PLC_to_PC.LaserPrinter.Step", offset: 6, type: "int16", direction: "read" }
+      - name: "laser_enabled"
+        db: 8012
+        start: 20
+        length: 12
+        repeat:
+          count: 6
+          stride: 2
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Enabled", type: "int16", direction: "read" }
+      - name: "laser_alarm"
+        db: 8012
+        start: 32
+        length: 12
+        repeat:
+          count: 6
+          stride: 2
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Alarm", type: "int16", direction: "read" }
+      - name: "laser_done"
+        db: 8012
+        start: 48
+        length: 12
+        repeat:
+          count: 6
+          stride: 2
+        points:
+          - { name: "PC_to_PLC.LaserPrinter.Done", type: "int16", direction: "read" }
+      - name: "laser_read"
+        db: 8012
+        start: 60
+        length: 2
+        points:
+          - { name: "PC_to_PLC.LaserPrinter.ModuleRead", type: "int16", direction: "write" }
+  - code: "sorting-laser-12h"
+    model: "macsa_winder"
+    host: "192.168.5.111"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "外检打标机 12 头（Macsa，DB8012）"
+    poll_groups:
+      - name: "laser_start"
+        db: 8012
+        start: 0
+        length: 24
+        repeat:
+          count: 12
+          stride: 2
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Start", type: "int16", direction: "read" }
+      - name: "laser_ctrl"
+        db: 8012
+        start: 24
+        length: 8
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Id_Module", offset: 0, type: "int32", direction: "read" }
+          - { name: "PLC_to_PC.LaserPrinter.NumberModule", offset: 4, type: "int16", direction: "read" }
+          - { name: "PLC_to_PC.LaserPrinter.Step", offset: 6, type: "int16", direction: "read" }
+      - name: "laser_enabled"
+        db: 8012
+        start: 32
+        length: 24
+        repeat:
+          count: 12
+          stride: 2
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Enabled", type: "int16", direction: "read" }
+      - name: "laser_alarm"
+        db: 8012
+        start: 56
+        length: 24
+        repeat:
+          count: 12
+          stride: 2
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Alarm", type: "int16", direction: "read" }
+      - name: "laser_done"
+        db: 8012
+        start: 84
+        length: 24
+        repeat:
+          count: 12
+          stride: 2
+        points:
+          - { name: "PC_to_PLC.LaserPrinter.Done", type: "int16", direction: "read" }
+      - name: "laser_read"
+        db: 8012
+        start: 108
+        length: 2
+        points:
+          - { name: "PC_to_PLC.LaserPrinter.ModuleRead", type: "int16", direction: "write" }
+  - code: "sorting-laser-16h"
+    model: "macsa_winder"
+    host: "192.168.5.111"
+    port: 102
+    rack: 0
+    slot: 1
+    protocol: "s7"
+    description: "外检打标机 16 头（Macsa，DB8012）"
+    poll_groups:
+      - name: "laser_start"
+        db: 8012
+        start: 0
+        length: 32
+        repeat:
+          count: 16
+          stride: 2
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Start", type: "int16", direction: "read" }
+      - name: "laser_ctrl"
+        db: 8012
+        start: 32
+        length: 8
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Id_Module", offset: 0, type: "int32", direction: "read" }
+          - { name: "PLC_to_PC.LaserPrinter.NumberModule", offset: 4, type: "int16", direction: "read" }
+          - { name: "PLC_to_PC.LaserPrinter.Step", offset: 6, type: "int16", direction: "read" }
+      - name: "laser_enabled"
+        db: 8012
+        start: 40
+        length: 32
+        repeat:
+          count: 16
+          stride: 2
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Enabled", type: "int16", direction: "read" }
+      - name: "laser_alarm"
+        db: 8012
+        start: 72
+        length: 32
+        repeat:
+          count: 16
+          stride: 2
+        points:
+          - { name: "PLC_to_PC.LaserPrinter.Alarm", type: "int16", direction: "read" }
+      - name: "laser_done"
+        db: 8012
+        start: 108
+        length: 32
+        repeat:
+          count: 16
+          stride: 2
+        points:
+          - { name: "PC_to_PLC.LaserPrinter.Done", type: "int16", direction: "read" }
+      - name: "laser_read"
+        db: 8012
+        start: 140
+        length: 2
+        points:
+          - { name: "PC_to_PLC.LaserPrinter.ModuleRead", type: "int16", direction: "write" }

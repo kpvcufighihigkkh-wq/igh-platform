@@ -1,0 +1,74 @@
+# 由 tools/geomgen/extract.js 从 Hive/DataBase/h028.sql 生成，请勿手改。
+# 语义：卷绕机锭位(spindle_place) + 落筒侧(A/B) → 容器位置(new_place)。
+capacity: 24
+patterns:
+  - code: "dx"
+    map:
+      - { spindle_place: 1, a: 15, b: 16 }
+      - { spindle_place: 2, a: 18, b: 17 }
+      - { spindle_place: 3, a: 23, b: 24 }
+      - { spindle_place: 4, a: 21, b: 22 }
+      - { spindle_place: 5, a: 20, b: 19 }
+      - { spindle_place: 6, a: 13, b: 14 }
+      - { spindle_place: 7, a: 1, b: 2 }
+      - { spindle_place: 8, a: 8, b: 7 }
+      - { spindle_place: 9, a: 9, b: 10 }
+      - { spindle_place: 10, a: 11, b: 12 }
+      - { spindle_place: 11, a: 6, b: 5 }
+      - { spindle_place: 12, a: 3, b: 4 }
+  - code: "dxw"
+    map:
+      - { spindle_place: 1, a: 3, b: 4 }
+      - { spindle_place: 2, a: 6, b: 5 }
+      - { spindle_place: 3, a: 11, b: 12 }
+      - { spindle_place: 4, a: 9, b: 10 }
+      - { spindle_place: 5, a: 8, b: 7 }
+      - { spindle_place: 6, a: 1, b: 2 }
+      - { spindle_place: 7, a: 13, b: 14 }
+      - { spindle_place: 8, a: 20, b: 19 }
+      - { spindle_place: 9, a: 21, b: 22 }
+      - { spindle_place: 10, a: 23, b: 24 }
+      - { spindle_place: 11, a: 18, b: 17 }
+      - { spindle_place: 12, a: 15, b: 16 }
+  - code: "fdy"
+    map:
+      - { spindle_place: 1, a: 1, b: 13 }
+      - { spindle_place: 2, a: 2, b: 14 }
+      - { spindle_place: 3, a: 3, b: 15 }
+      - { spindle_place: 4, a: 4, b: 16 }
+      - { spindle_place: 5, a: 5, b: 17 }
+      - { spindle_place: 6, a: 6, b: 18 }
+      - { spindle_place: 7, a: 7, b: 19 }
+      - { spindle_place: 8, a: 8, b: 20 }
+      - { spindle_place: 9, a: 9, b: 21 }
+      - { spindle_place: 10, a: 10, b: 22 }
+      - { spindle_place: 11, a: 11, b: 23 }
+      - { spindle_place: 12, a: 12, b: 24 }
+  - code: "sx"
+    map:
+      - { spindle_place: 1, a: 1, b: 13 }
+      - { spindle_place: 2, a: 2, b: 14 }
+      - { spindle_place: 3, a: 3, b: 15 }
+      - { spindle_place: 4, a: 4, b: 16 }
+      - { spindle_place: 5, a: 5, b: 17 }
+      - { spindle_place: 6, a: 6, b: 18 }
+      - { spindle_place: 7, a: 7, b: 19 }
+      - { spindle_place: 8, a: 8, b: 20 }
+      - { spindle_place: 9, a: 9, b: 21 }
+      - { spindle_place: 10, a: 10, b: 22 }
+      - { spindle_place: 11, a: 11, b: 23 }
+      - { spindle_place: 12, a: 12, b: 24 }
+  - code: "sxw"
+    map:
+      - { spindle_place: 1, a: 1, b: 2 }
+      - { spindle_place: 2, a: 8, b: 7 }
+      - { spindle_place: 3, a: 9, b: 10 }
+      - { spindle_place: 4, a: 11, b: 12 }
+      - { spindle_place: 5, a: 6, b: 5 }
+      - { spindle_place: 6, a: 3, b: 4 }
+      - { spindle_place: 7, a: 15, b: 16 }
+      - { spindle_place: 8, a: 18, b: 17 }
+      - { spindle_place: 9, a: 23, b: 24 }
+      - { spindle_place: 10, a: 21, b: 22 }
+      - { spindle_place: 11, a: 20, b: 19 }
+      - { spindle_place: 12, a: 13, b: 14 }

@@ -1,0 +1,87 @@
+# ===================================================================
+# IGH Edge Node - 卷绕线 01
+#
+# 本机是"现场配置"的消费者：PLC 点表与装载位置查表以中心下发的
+# site config 为准，这里的 instance_files 只是中心配好之前的兜底。
+#
+# 这里刻意不设 protocol_override: simulation。
+# 仿真协议会持续产生假的落筒事件推给中心，把刚清空的库重新灌满，
+# 而这条边端的编码是 edge-winding-01（真实编码），假数据会污染它。
+# 开发机上连不到 192.168.5.101 只会刷连接日志，不产生任何业务事件。
+# 要跑业务全流程请另起一个仿真边端编码。
+# ===================================================================
+
+edge:
+  id: "edge-winding-01"
+  type: "winding"           # winding / sorting / packaging / warehouse
+  data_dir: "./data-winding"
+
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+  server:
+    # 单地址：写 url
+    url: "http://127.0.0.1:8101"
+
+    # 多地址（双机热备推荐）：改写成列表，url 不再生效。
+    # 边端按顺序尝试，连接失败或对方返回 5xx 就自动换下一台，
+    # 成功一次后记住该地址（粘滞），下次优先用它。
+    #
+    # 建议第一项写 VIP（跟着 keepalived 漂移），后面写两台实机兜底：
+    #
+    # urls:
+    #   - "http://192.168.10.100:8101"   # VIP
+    #   - "http://192.168.10.1:8101"     # 服务器1
+    #   - "http://192.168.10.2:8101"     # 服务器2
+
+    api_key: "sk-igh-dev-key-change-in-production"
+    heartbeat_sec: 10
+    sync_interval_sec: 30
+
+  plc:
+    poll_interval_ms: 2000
+
+    instance_files:
+      - "devices/instances/spinning_sides.yaml"
+    strict: false
+
+  # 打印机按 IP 直配，列表为空时工位页面的"补打标签"会提示未配置。
+  #
+  # 配了 device + head 的是 Macsa 打标机（二进制帧协议，按头号索引）；
+  # 只配 code 的是 Zebra 标签机（ZPL over TCP，默认 9100）。
+  #
+  # printers:
+  #   - code: "label-winding-01"      # 工位页面用这个 code 调 /edge/print
+  #     host: "192.168.1.50"
+  #     port: 9100
+  #   - code: "mark-sorting-L04-1"    # 打标机：按设备 + 头号定位
+  #     device: "sorting-L04"
+  #     head: 1
+  #     host: "192.168.4.78"
+  #     port: 3490
+  #     label: "mae3"
+  printers: []
+
+  ha:
+    mode: "standalone"
+    peer: ""
+    vip: ""
+    priority: 100
+
+  line:
+    code: "L01"
+    name: "卷绕线01"
+
+  # 一次落筒产出的锭数。取值来自线路主数据
+  # configs/production_lines.yaml 中 L01 的 bobbins_per_doff。
+  # 不配的话点表解释器会拒绝所有落筒事件（日志里是 error 级别告警）。
+  bobbins_per_doff: 8
+
+  # 丝锭标签打印机编码（对应下面 printers 段里的 code）。
+  #
+  # 留空 = 不打印丝锭标签，这是默认值。现场装了标签机再填。
+  # 打印失败不影响落筒数据上报——丝锭已经产出，数据比纸重要，
+  # 失败会在日志里记 error，可从 /edge/print 补打。
+  #
+  # bobbin_label_printer: "label-bobbin-01"

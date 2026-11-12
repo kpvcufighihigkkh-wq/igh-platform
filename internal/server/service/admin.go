@@ -1,6 +1,8 @@
 package service
 
 import (
+	"fmt"
+
 	"github.com/igh-platform/igh-platform/internal/server/model"
 	"gorm.io/gorm"
 )
@@ -23,11 +25,21 @@ func (s *AdminService) ListSettings(category string) ([]model.SystemSetting, err
 	return items, err
 }
 
+// UpdateSettings 批量保存系统设置。
+//
+// 必须把写库错误返回：早期实现逐条 FirstOrCreate 却忽略每条的错误，
+// 最后无条件 return nil。结果是"界面提示保存成功、实际一条都没写进去"，
+// 现场改了 api_key / 厂编码这类关键项却以为生效了。
 func (s *AdminService) UpdateSettings(settings []model.SystemSetting) error {
-	for _, s2 := range settings {
-		s.db.Where("key = ?", s2.Key).Assign(s2).FirstOrCreate(&model.SystemSetting{})
-	}
-	return nil
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		for _, s2 := range settings {
+			if err := tx.Where("key = ?", s2.Key).
+				Assign(s2).FirstOrCreate(&model.SystemSetting{}).Error; err != nil {
+				return fmt.Errorf("保存设置 %q 失败: %w", s2.Key, err)
+			}
+		}
+		return nil
+	})
 }
 
 func (s *AdminService) ListStationBindings() ([]model.StationBinding, error) {

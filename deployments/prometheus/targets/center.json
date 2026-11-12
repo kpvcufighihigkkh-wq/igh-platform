@@ -1,0 +1,16 @@
+[
+  {
+    "targets": ["192.168.10.1:8099"],
+    "labels": {
+      "node": "server-a",
+      "role_hint": "primary-of-pair"
+    }
+  },
+  {
+    "targets": ["192.168.10.2:8099"],
+    "labels": {
+      "node": "server-b",
+      "role_hint": "secondary-of-pair"
+    }
+  }
+]

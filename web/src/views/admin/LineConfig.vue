@@ -87,6 +87,10 @@
         <n-form-item label="状态">
           <n-select v-model:value="lineForm.status" :options="lineStatusOpts" />
         </n-form-item>
+        <n-form-item label="装载模式">
+          <n-select v-model:value="lineForm.loading_pattern" :options="loadingPatternOpts" clearable
+                    placeholder="决定锭在台车上的位置查表" />
+        </n-form-item>
         <n-button type="primary" block @click="saveLine">保存</n-button>
       </n-form>
     </n-modal>
@@ -158,6 +162,14 @@ const stationOpts = [
   { label: '包装区', value: 'packaging' },
   { label: '仓库区', value: 'warehouse' },
 ]
+// 装载模式：与现场装载位置查表（site-config 的 loading.patterns）中的 code 对应
+const loadingPatternOpts = [
+  { label: 'dx', value: 'dx' },
+  { label: 'dxw', value: 'dxw' },
+  { label: 'fdy', value: 'fdy' },
+  { label: 'sx', value: 'sx' },
+  { label: 'sxw', value: 'sxw' },
+]
 const lineStatusOpts = [
   { label: '运行中', value: 'running' },
   { label: '停机', value: 'stopped' },
@@ -204,19 +216,44 @@ async function fetchWinders(lineCode: string) {
 // --- Line CRUD ---
 
 const showLineModal = ref(false)
-const lineForm = ref({ id: 0, code: '', name: '', station_type: 'winding', product_types: [] as string[], status: 'running' })
+const lineForm = ref({ id: 0, code: '', name: '', station_type: 'winding', product_types: [] as string[], status: 'running', loading_pattern: null as string | null, config: null as any })
 
 function openLineForm(row?: any) {
   if (row) {
-    lineForm.value = { id: row.id, code: row.code, name: row.name, station_type: row.station_type || 'winding', product_types: row.product_type ? row.product_type.split(',') : [], status: row.status || 'running' }
+    let cfg: any = {}
+    try { cfg = typeof row.config === 'string' ? JSON.parse(row.config) : (row.config || {}) } catch {}
+    lineForm.value = {
+      id: row.id, code: row.code, name: row.name,
+      station_type: row.station_type || 'winding',
+      product_types: row.product_type ? row.product_type.split(',') : [],
+      status: row.status || 'running',
+      loading_pattern: cfg.loading_pattern ?? null,
+      config: cfg,
+    }
   } else {
-    lineForm.value = { id: 0, code: '', name: '', station_type: 'winding', product_types: [], status: 'running' }
+    lineForm.value = {
+      id: 0, code: '', name: '', station_type: 'winding',
+      product_types: [], status: 'running', loading_pattern: null, config: null,
+    }
   }
   showLineModal.value = true
 }
 
 async function saveLine() {
-  const payload = { ...lineForm.value, product_type: lineForm.value.product_types.join(',') }
+  // config 里还有 plc_code 等其它键，合并而不是覆盖
+  const cfg = { ...(lineForm.value.config || {}) }
+  if (lineForm.value.loading_pattern) cfg.loading_pattern = lineForm.value.loading_pattern
+  else delete cfg.loading_pattern
+
+  const payload: any = {
+    id: lineForm.value.id,
+    code: lineForm.value.code,
+    name: lineForm.value.name,
+    station_type: lineForm.value.station_type,
+    product_type: lineForm.value.product_types.join(','),
+    status: lineForm.value.status,
+    config: cfg,
+  }
   if (lineForm.value.id) {
     await http.put(`/admin/production-lines/${lineForm.value.id}`, payload)
   } else {

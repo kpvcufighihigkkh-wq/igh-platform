@@ -1,0 +1,101 @@
+# IGH 高可用集群拓扑配置
+#
+# 拓扑：2 台业务服务器 + 1 台见证节点（复用边端 PC，只跑 etcd）
+#   - etcd 需要 3 个成员才能容忍任意 1 个故障（Raft 多数派 = 2/3）
+#   - 没有 VIP：客户端（center / edge）直接配置两个服务器地址
+#   - 数据库：PostgreSQL 同步复制，synchronous_commit = remote_apply（零丢失）
+#
+# 使用前必须改：
+#   - 全部 IP 地址
+#   - cluster_token（换成一个随机字符串，三台机器必须一致）
+#
+# 校验：hactl -config configs/ha/cluster.yaml -validate
+
+cluster_token: "igh-hx-jj-2026"
+
+# 选主租约
+#   lease_ttl_sec      : 租约存活时间。etcd 租约到期后 leader 键自动消失
+#   renew_interval_sec : 续约间隔，必须是 TTL 的 1/5 左右
+#   恢复时间预算 ≈ lease_ttl_sec + promote + 客户端重试
+lease_ttl_sec: 5
+renew_interval_sec: 1
+leader_key: "/igh/leader"
+
+# etcd 成员（恰好 3 个）
+nodes:
+  - id: "server-a"
+    addr: "http://192.168.10.1:2379"      # etcd 客户端端口
+    peer: "http://192.168.10.1:2380"      # etcd 成员间端口
+    role: "server"
+  - id: "server-b"
+    addr: "http://192.168.10.2:2379"
+    peer: "http://192.168.10.2:2380"
+    role: "server"
+  - id: "witness"
+    addr: "http://192.168.10.31:2379"     # 见证节点：某台边端 PC 的服务网 IP
+    peer: "http://192.168.10.31:2380"
+    role: "witness"
+
+# 数据库角色候选（两台服务器）
+database:
+  primary_candidate: "192.168.10.1"       # 初始主库
+  standby_candidate: "192.168.10.2"       # 初始备库
+  port: 5432
+  database: "igh_platform"
+  user: "igh"
+  # 密码不写在这里，用环境变量 IGH_DB_PASSWORD
+  replication_user: "replicator"
+  # PostgreSQL 数据目录（Windows 路径）
+  data_dir: "D:\\igh\\pgsql\\data"
+  # pg_ctl 可执行文件路径
+  pg_ctl: "C:\\Program Files\\PostgreSQL\\16\\bin\\pg_ctl.exe"
+  # pg_rewind 路径。留空时自动取 pg_ctl 同目录（Windows 会补 .exe）。
+  # pg_rewind: "C:\\Program Files\\PostgreSQL\\16\\bin\\pg_rewind.exe"
+  # WAL 保留上限。必须设，不能留空——留空等于无上限，对端长期不回来
+  # 会让 WAL 堆到撑满磁盘。实测全链路约 10.6 KB/落筒，4GB 能留 100 天以上。
+  # 超出后槽失效（对端改走全量 pg_basebackup 重建），而不是主库停服。
+  wal_keep_size: "4GB"
+
+# 客户端（center / edge）连接的两个地址
+# 注意：不使用 VIP。center 启动时探测 pg_is_in_recovery() 决定连哪台。
+endpoints:
+  - "http://192.168.10.1:8099"
+  - "http://192.168.10.2:8099"
+
+# 故障切换行为
+failover:
+  # 备机不可达时，主库如何处理：
+  #   block   : 停止写入并告警，由人工决定（推荐：零丢失）
+  #   degrade : 超时后降级为异步（会产生分叉风险，仅在有见证节点且明确接受时启用）
+  on_standby_unreachable: "block"
+  # 主库不可达多久后，备库尝试提升（秒）
+  promote_after_sec: 3
+  # 提升前必须确认已追平
+  require_lsn_caught_up: true
+  # 旧主库恢复后是否自动回退为备库（需要 pg_rewind）
+  #
+  # 开启后，被剥夺租约的旧主库会：硬围栏 → 停库 → pg_rewind 回滚到分叉点 →
+  # 写成备库 → 重新加入复制。它**永远不会**自己变回主库。
+  #
+  # 前置条件（缺一个就失败，不会降级处理）：
+  #   1. 两台服务器 initdb 时开了 wal_log_hints 或数据校验和。
+  #      注意：只在启动参数里加 -c wal_log_hints=on 不够——pg_rewind 检查的是
+  #      pg_control 里落盘的 initdb 期选项。
+  #   2. 要能读到对端的 global/pg_control，需要超级用户权限
+  #      （只给 REPLICATION 的角色会报 permission denied for pg_read_binary_file）。
+  #   3. 主库需保留足够的 WAL，否则 rewind 会因找不到源 WAL 而失败。
+  #
+  # 建议先在测试环境跑 deployments/ha-sim/verify-rejoin.sh 全链路验证。
+  auto_rejoin_as_standby: true
+  # 回退失败后等多久再试（秒）。太短会把数据库反复停启。
+  rejoin_cooldown_sec: 30
+  # 连续失败多少次后放弃自动回退，转人工。默认 3。
+  rejoin_max_attempts: 3
+
+# 时间预算（用于校验是否满足 10 秒目标）
+budget:
+  lease_expiry_sec: 5
+  lsn_check_sec: 1
+  promote_sec: 2
+  center_reconnect_sec: 1
+  edge_retry_sec: 1

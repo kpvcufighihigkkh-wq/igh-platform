@@ -1,0 +1,68 @@
+# IGH Edge 热备配置示例 (HA Active-Standby)
+#
+# 部署说明:
+#   1. 两台工控机各部署一份 igh-edge
+#   2. 主节点 priority 设为较低数字 (优先级高)
+#   3. 备节点 priority 设为较高数字 (优先级低)
+#   4. 两台配置除 id/priority 外其余相同
+#   5. VIP 地址需提前在网络设备上预留
+#
+# 故障切换:
+#   - 主节点每 2 秒发送 UDP 心跳到 peer
+#   - 备节点 6 秒未收到心跳则接管 VIP
+#   - 主节点恢复后自动降级为备 (优先级仲裁)
+
+# ===== 主节点配置 =====
+edge:
+  id: "edge-winding-01a"       # 主节点 ID
+  type: "winding"
+  data_dir: "./data"
+
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+  server:
+    url: "http://192.168.1.100:8099"
+    api_key: "sk-igh-change-in-production"
+    heartbeat_sec: 10
+    sync_interval_sec: 30
+
+  plc:
+    poll_interval_ms: 1000
+    devices:
+      - code: "plc-L01"
+        model: "barmag_winder"
+        host: "192.168.1.10"
+        port: 102
+        rack: 0
+        slot: 1
+        protocol: "s7"
+        read_blocks:
+          - { db: 1, start: 0, size: 100, tag: "status" }
+          - { db: 2, start: 0, size: 200, tag: "production" }
+
+  printers:
+    - code: "label-winding-01"
+      host: "192.168.1.50"
+      port: 9100
+
+  ha:
+    mode: "active-standby"
+    peer: "192.168.1.22"        # 备节点 IP
+    vip: "192.168.1.200"        # 虚拟 IP (对外服务地址)
+    priority: 10                # 主节点优先级 (数字小=优先)
+
+  line:
+    code: "L01"
+    name: "FDY Line 01"
+
+# ===== 备节点配置 (在另一台工控机上) =====
+# edge:
+#   id: "edge-winding-01b"     # 备节点 ID
+#   ...（其余配置相同）...
+#   ha:
+#     mode: "active-standby"
+#     peer: "192.168.1.21"     # 主节点 IP
+#     vip: "192.168.1.200"     # 相同的 VIP
+#     priority: 20             # 备节点优先级较高数字 (优先级低)

@@ -7,6 +7,7 @@ import (
 	"github.com/igh-platform/igh-platform/internal/server/api/admin"
 	"github.com/igh-platform/igh-platform/internal/server/api/alarm"
 	"github.com/igh-platform/igh-platform/internal/server/api/device"
+	edgemgmt "github.com/igh-platform/igh-platform/internal/server/api/edge"
 	"github.com/igh-platform/igh-platform/internal/server/api/erp"
 	"github.com/igh-platform/igh-platform/internal/server/api/label"
 	"github.com/igh-platform/igh-platform/internal/server/api/maintenance"
@@ -14,9 +15,13 @@ import (
 	"github.com/igh-platform/igh-platform/internal/server/api/production"
 	"github.com/igh-platform/igh-platform/internal/server/api/quality"
 	"github.com/igh-platform/igh-platform/internal/server/api/stats"
+	"github.com/igh-platform/igh-platform/internal/server/api/trace"
+	"github.com/igh-platform/igh-platform/internal/server/api/user"
 	"github.com/igh-platform/igh-platform/internal/server/api/vehicle"
 	"github.com/igh-platform/igh-platform/internal/server/api/vision"
 	"github.com/igh-platform/igh-platform/internal/server/api/warehouse"
+	"github.com/igh-platform/igh-platform/internal/server/archive"
+	"github.com/igh-platform/igh-platform/internal/server/database"
 	"github.com/igh-platform/igh-platform/internal/server/eventbus"
 	"github.com/igh-platform/igh-platform/internal/server/ha"
 	"github.com/igh-platform/igh-platform/internal/server/middleware"
@@ -28,13 +33,19 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewRouter(cfg *config.ProjectConfig, hub *ws.Hub, db *gorm.DB, dispatcher *eventbus.Dispatcher, haManager *ha.Manager) *gin.Engine {
+func NewRouter(cfg *config.ProjectConfig, hub *ws.Hub, db *gorm.DB, dbPool *database.FailoverPool, dispatcher *eventbus.Dispatcher, haManager *ha.Manager, erpSvc *service.ERPService, archiver *archive.Service) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery(), middleware.Logger(), middleware.Metrics())
 
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok", "ha": haManager.GetStatus()})
+		body := gin.H{"status": "ok", "ha": haManager.GetStatus()}
+		// 数据库健康很关键：双机切换后运维要能一眼看出中心连的是哪台库，
+		// 而不是靠翻日志判断"到底切没切过去"。
+		if dbPool != nil {
+			body["database"] = dbPool.Status()
+		}
+		c.JSON(200, body)
 	})
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
@@ -57,13 +68,20 @@ func NewRouter(cfg *config.ProjectConfig, hub *ws.Hub, db *gorm.DB, dispatcher *
 	})
 
 	// Edge (API-Key)
+	edgeSvc := service.NewEdgeService(db)
+	cfgSvc := service.NewEdgeConfigService(db)
+	edgeEventSvc := service.NewEdgeEventService(db)
+	dataDir := filepath.Join(filepath.Dir(config.ConfigDir()), "data")
+	relSvc := service.NewEdgeReleaseService(db, dataDir)
 	edge := v1.Group("/edge", middleware.APIKeyAuth(cfg.Server.APIKey))
 	{
-		edge.POST("/register", handleEdgeRegister(hub))
-		edge.POST("/heartbeat", handleEdgeHeartbeat(hub))
-		edge.POST("/upload", handleEdgeUpload(hub, dispatcher))
-		edge.POST("/upload/batch", handleEdgeUploadBatch(hub, dispatcher))
-		edge.POST("/command/ack", handleCommandAck())
+		edge.POST("/register", handleEdgeRegister(hub, edgeSvc))
+		edge.POST("/heartbeat", handleEdgeHeartbeat(hub, edgeSvc, cfgSvc, relSvc))
+		edge.POST("/upload", handleEdgeUpload(hub, dispatcher, edgeEventSvc))
+		edge.POST("/upload/batch", handleEdgeUploadBatch(hub, dispatcher, edgeEventSvc))
+		edge.POST("/command/ack", handleCommandAck(edgeSvc))
+		edge.GET("/release/download/:version", handleReleaseDownload(relSvc))
+		registerEdgeSyncRoutes(edge, db)
 	}
 
 	// Management (JWT)
@@ -80,7 +98,15 @@ func NewRouter(cfg *config.ProjectConfig, hub *ws.Hub, db *gorm.DB, dispatcher *
 		alarmHandler.RegisterRoutes(mgmt)
 
 		// Labels (always enabled)
-		labelSvc := service.NewLabelService(config.ConfigDir())
+		// 打印机列表来自 project.yaml 的 printers，前端只传编码，
+		// 改地址不用重新发版前端。
+		labelPrinters := make([]service.PrinterConfig, 0, len(cfg.Printers))
+		for _, p := range cfg.Printers {
+			labelPrinters = append(labelPrinters, service.PrinterConfig{
+				Code: p.Code, Name: p.Name, Host: p.Host, Port: p.Port,
+			})
+		}
+		labelSvc := service.NewLabelService(config.ConfigDir(), labelPrinters)
 		labelHandler := label.NewHandler(labelSvc)
 		labelHandler.RegisterRoutes(mgmt)
 
@@ -109,7 +135,8 @@ func NewRouter(cfg *config.ProjectConfig, hub *ws.Hub, db *gorm.DB, dispatcher *
 		orderHandler.RegisterRoutes(mgmt, func(c *gin.Context) { moduleGuard(cfg, "packaging", c) })
 
 		// ERP
-		erpSvc := service.NewERPService(db, service.ERPConfig{Mode: "push_only"})
+		// 服务由 main 构造后注入：dispatcher 入队与这里查询/重试必须用同一份配置，
+		// 否则会出现"入队按 A 配置、推送按 B 配置"的漂移。
 		erpHandler := erp.NewHandler(erpSvc)
 		erpHandler.RegisterRoutes(mgmt, func(c *gin.Context) { moduleGuard(cfg, "erp", c) })
 
@@ -117,6 +144,10 @@ func NewRouter(cfg *config.ProjectConfig, hub *ws.Hub, db *gorm.DB, dispatcher *
 		mtSvc := service.NewMaintenanceService(db)
 		mtHandler := maintenance.NewHandler(mtSvc)
 		mtHandler.RegisterRoutes(mgmt, func(c *gin.Context) { moduleGuard(cfg, "maintenance", c) })
+
+		// Edge management (always enabled)
+		edgeHandler := edgemgmt.NewHandler(edgeSvc, cfgSvc, relSvc)
+		edgeHandler.RegisterRoutes(mgmt)
 
 		// Devices (always enabled)
 		deviceHandler := device.NewHandler(db)
@@ -131,10 +162,26 @@ func NewRouter(cfg *config.ProjectConfig, hub *ws.Hub, db *gorm.DB, dispatcher *
 		statsHandler := stats.NewHandler(statsSvc)
 		statsHandler.RegisterRoutes(mgmt)
 
+		// 追溯（always enabled）
+		// 跨越生产/仓库/包装三个模块，所以不挂 moduleGuard：
+		// 客户投诉查货时，不该因为某个模块被关掉就查不出结果。
+		traceSvc := service.NewTraceService(db)
+		trace.NewHandler(traceSvc).RegisterRoutes(mgmt)
+
 		// Admin (always enabled)
-		adminHandler := admin.NewHandler(adminSvc, cfg, logPath)
+		adminHandler := admin.NewHandler(adminSvc, cfg, logPath, archiver)
 		adminHandler.RegisterRoutes(mgmt)
+
+		// 用户与角色管理（always enabled）
+		// 不挂在 AdminHandler 里是因为它有自己的角色校验要求，
+		// 而 admin 那组是"登录即可用的配置项"。
+		userSvc := service.NewUserService(db)
+		userHandler := user.NewHandler(userSvc)
+		userHandler.RegisterRoutes(mgmt)
 	}
+
+	// 托管管理端前端。<配置目录>/ui/index.html
+	serveUI(r, filepath.Join(config.ConfigDir(), "ui"))
 
 	return r
 }
