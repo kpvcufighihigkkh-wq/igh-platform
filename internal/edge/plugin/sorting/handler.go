@@ -104,8 +104,13 @@ func (h *handler) listWeighingRules(c *gin.Context) {
 }
 
 type sortingReq struct {
-	BobbinID   int64  `json:"bobbin_id" binding:"required"`
+	// BobbinID 与 BobbinCode 二选一：扫码枪给的是编码，页面不再让人手打 id。
+	BobbinID   int64  `json:"bobbin_id"`
+	BobbinCode string `json:"bobbin_code"`
 	Grade      string `json:"grade" binding:"required"`
+	// DefectCode 可能是单个代码，也可能是多个以逗号分隔（现场允许多选）。
+	// 保持字符串类型而不是改成数组：bobbins.defect_code 是 varchar(32)，
+	// 既有数据和 ERP 侧都按字符串处理，改类型会波及整条链。
 	DefectCode string `json:"defect_code"`
 }
 
@@ -113,6 +118,21 @@ func (h *handler) setSorting(c *gin.Context) {
 	var req sortingReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, types.Response{Code: 400, Message: err.Error()})
+		return
+	}
+
+	// 按编码定位丝锭：扫码流程只有编码可用。
+	bobbinID := req.BobbinID
+	if bobbinID <= 0 && req.BobbinCode != "" {
+		var b model.Bobbin
+		if err := h.db.Select("id").Where("code = ?", req.BobbinCode).First(&b).Error; err != nil {
+			c.JSON(http.StatusNotFound, types.Response{Code: 404, Message: "bobbin not found"})
+			return
+		}
+		bobbinID = b.ID
+	}
+	if bobbinID <= 0 {
+		c.JSON(http.StatusBadRequest, types.Response{Code: 400, Message: "缺少 bobbin_id 或 bobbin_code"})
 		return
 	}
 
@@ -124,13 +144,13 @@ func (h *handler) setSorting(c *gin.Context) {
 		updates["defect_code"] = req.DefectCode
 	}
 
-	if err := h.db.Model(&model.Bobbin{}).Where("id = ?", req.BobbinID).Updates(updates).Error; err != nil {
+	if err := h.db.Model(&model.Bobbin{}).Where("id = ?", bobbinID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, types.Response{Code: 500, Message: err.Error()})
 		return
 	}
 
-	h.computeFinalGrade(req.BobbinID)
-	c.JSON(http.StatusOK, types.Response{Code: 0})
+	h.computeFinalGrade(bobbinID)
+	c.JSON(http.StatusOK, types.Response{Code: 0, Data: gin.H{"bobbin_id": bobbinID}})
 }
 
 type weighingReq struct {

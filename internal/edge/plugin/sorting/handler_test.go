@@ -219,3 +219,96 @@ func TestListBobbins_Pagination(t *testing.T) {
 		t.Errorf("items count = %d, want 2", len(items))
 	}
 }
+
+// TestSetSorting_ByBobbinCode 验证扫码流程：只有编码、没有自增 id。
+//
+// 扫码枪读的是标签上的编码，页面不该让人手打 id。
+func TestSetSorting_ByBobbinCode(t *testing.T) {
+	db := testDB(t)
+	db.Create(&model.Bobbin{ID: 20, Code: "LOT1-L01-W1L-250416093015-001-01", LotID: 1})
+
+	r := gin.New()
+	h := &handler{db: db}
+	r.POST("/sorting", h.setSorting)
+
+	body, _ := json.Marshal(sortingReq{
+		BobbinCode: "LOT1-L01-W1L-250416093015-001-01", Grade: "A",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/sorting", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var b model.Bobbin
+	db.First(&b, 20)
+	if b.SortingGrade != "A" {
+		t.Errorf("sorting_grade = %q, want A", b.SortingGrade)
+	}
+}
+
+// TestSetSorting_UnknownCode 扫到库里没有的码必须 404，而不是静默成功。
+func TestSetSorting_UnknownCode(t *testing.T) {
+	db := testDB(t)
+	r := gin.New()
+	h := &handler{db: db}
+	r.POST("/sorting", h.setSorting)
+
+	body, _ := json.Marshal(sortingReq{BobbinCode: "NOT-EXIST", Grade: "A"})
+	req := httptest.NewRequest(http.MethodPost, "/sorting", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestSetSorting_MultipleDefects 验证多选缺陷按逗号拼接后原样入库。
+//
+// 现场允许多选，后端不做拆分：defect_code 是 varchar(32)，
+// 拆分与定级规则属于业务，不该压在这一层。这里只保证字符串不被截断。
+func TestSetSorting_MultipleDefects(t *testing.T) {
+	db := testDB(t)
+	db.Create(&model.Bobbin{ID: 30, Code: "C30", LotID: 1})
+
+	r := gin.New()
+	h := &handler{db: db}
+	r.POST("/sorting", h.setSorting)
+
+	body, _ := json.Marshal(sortingReq{BobbinCode: "C30", Grade: "B", DefectCode: "MAO,YOU"})
+	req := httptest.NewRequest(http.MethodPost, "/sorting", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var b model.Bobbin
+	db.First(&b, 30)
+	if b.DefectCode != "MAO,YOU" {
+		t.Errorf("defect_code = %q, want MAO,YOU", b.DefectCode)
+	}
+}
+
+// TestSetSorting_NoIdentifier 两者都不给必须 400。
+func TestSetSorting_NoIdentifier(t *testing.T) {
+	db := testDB(t)
+	r := gin.New()
+	h := &handler{db: db}
+	r.POST("/sorting", h.setSorting)
+
+	body, _ := json.Marshal(sortingReq{Grade: "A"})
+	req := httptest.NewRequest(http.MethodPost, "/sorting", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}

@@ -78,6 +78,25 @@ func newRouter(cfg *config.EdgeConfig, db *gorm.DB, p plugin.StationPlugin, sync
 		c.JSON(http.StatusOK, types.Response{Code: 0, Data: plcMgr.Status()})
 	})
 
+	// 当前点值：称重值、料车 RFID、包装机已装锭数都从这里读。
+	//
+	// 不带 ?device= 时按设备分组返回全部点值；带 device 时只返回该设备。
+	// 值来自最近一次轮询的结果，不会因为这次请求去额外读一次 PLC——
+	// 页面按自己的节奏轮询本接口即可，不能反客为主去驱动采集。
+	v1.GET("/edge/plc/values", func(c *gin.Context) {
+		if code := c.Query("device"); code != "" {
+			c.JSON(http.StatusOK, types.Response{Code: 0, Data: gin.H{
+				"device": code, "values": plcMgr.Values(code),
+			}})
+			return
+		}
+		all := make(map[string]any, 4)
+		for _, d := range plcMgr.DeviceCodes() {
+			all[d] = plcMgr.Values(d)
+		}
+		c.JSON(http.StatusOK, types.Response{Code: 0, Data: gin.H{"devices": all}})
+	})
+
 	v1.POST("/edge/plc/write", func(c *gin.Context) {
 		var req struct {
 			DeviceCode string `json:"device_code" binding:"required"`

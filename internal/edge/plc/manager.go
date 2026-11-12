@@ -248,6 +248,42 @@ func (m *Manager) Read(deviceCode string, dbNumber int, start int, size int) ([]
 	return dev.proto.ReadArea(dbNumber, start, size)
 }
 
+// Values 返回设备最近一次轮询解出的全部点值（键与 key 格式一致，如
+// "winder_data/W3/left/DatiBobine_DaWinder.Doff_No"）。
+//
+// 用途：工位页面需要读 PLC 的实时值——称重值、料车 RFID、包装机已装锭数
+// 都是"PLC 读到什么，页面就显示什么"，不能靠页面自己猜或让人手输。
+//
+// 返回拷贝：lastValues 由轮询协程持续写入，直接返回内部 map 会让调用方
+// 与轮询并发读写同一个 map（Go 运行时会直接崩，不是数据竞争那么简单）。
+//
+// 设备未连接或还没读到数据时返回空 map 而不是错误：页面要能把
+// "暂时没有值"和"设备不存在"区分开。
+func (m *Manager) Values(deviceCode string) map[string]any {
+	dev, ok := m.deviceSnapshot()[deviceCode]
+	if !ok {
+		return map[string]any{}
+	}
+	dev.mu.Lock()
+	defer dev.mu.Unlock()
+
+	out := make(map[string]any, len(dev.lastValues))
+	for k, v := range dev.lastValues {
+		out[k] = v
+	}
+	return out
+}
+
+// DeviceCodes 返回全部设备编码，供页面在未指定设备时遍历。
+func (m *Manager) DeviceCodes() []string {
+	devices := m.deviceSnapshot()
+	out := make([]string, 0, len(devices))
+	for code := range devices {
+		out = append(out, code)
+	}
+	return out
+}
+
 func (m *Manager) deviceLoop(dev *DeviceState) {
 	reconnectDelay := 5 * time.Second
 	ticker := time.NewTicker(m.pollInterval)

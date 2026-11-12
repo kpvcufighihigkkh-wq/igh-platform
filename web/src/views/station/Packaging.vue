@@ -3,39 +3,88 @@
     <header class="station-header">
       <h1>包装工位</h1>
       <div class="header-info">
-        <span class="user" v-if="isLoggedIn()">{{ userName }} <n-button text size="tiny" @click="logout">退出</n-button></span>
-        <n-tag :type="serverOnline ? 'success' : 'error'" size="small">
-          {{ serverOnline ? '在线' : '离线' }}
+        <n-tag :type="online ? 'success' : 'error'" size="large" round>
+          {{ online ? '在线' : `离线 · 待同步 ${queueDepth} 条` }}
         </n-tag>
         <span class="clock">{{ clock }}</span>
       </div>
     </header>
-    <ModuleAlert />
-    <n-tabs type="line" v-model:value="tab">
-      <n-tab-pane name="orders" tab="订单队列">
-        <div class="order-active" v-if="activeOrder">
-          <h3>当前订单</h3>
-          <n-descriptions :column="3" size="small" bordered>
-            <n-descriptions-item label="批次">{{ activeOrder.lot_id }}</n-descriptions-item>
-            <n-descriptions-item label="等级">{{ activeOrder.grade_code }}</n-descriptions-item>
-            <n-descriptions-item label="进度">{{ activeOrder.packed_quantity }} / {{ activeOrder.target_quantity }}</n-descriptions-item>
-          </n-descriptions>
-          <n-progress :percentage="Math.round((activeOrder.packed_quantity/activeOrder.target_quantity)*100)" type="line" status="success" style="margin-top:8px" />
+
+    <div class="body" :class="{ dim: !online }">
+      <div class="row grow">
+        <!-- 垛型网格：回答"下一个装哪"，进度条只能回答"装了多少" -->
+        <section class="panel grid-panel">
+          <h2>
+            当前栈板
+            <span v-if="layout" class="layout-tag">{{ layout.code }}</span>
+          </h2>
+
+          <template v-if="layout">
+            <div class="progress-line">
+              已装 <span class="mono big">{{ loaded }}</span> / {{ layout.capacity }} 锭
+              <span v-if="currentCell" class="cell-hint">
+                · 当前 第{{ currentCell.layer }}层第{{ currentCell.position }}位
+              </span>
+            </div>
+
+            <!-- 层从上层往下渲染：视觉上像在往下堆 -->
+            <div class="layers">
+              <div v-for="l in layout.layers.slice().reverse()" :key="l.layer" class="layer">
+                <span class="layer-label">L{{ l.layer }}</span>
+                <div class="cells">
+                  <div
+                    v-for="p in l.positions"
+                    :key="p"
+                    class="cell"
+                    :class="cellState(l.layer, p)"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <div v-else class="empty-hint">
+            未配置垛型。<code>pallets</code> 段需要在现场配置里填写，否则无法显示装载位置。
+          </div>
+        </section>
+
+        <section class="panel side-panel">
+          <h2>当前订单</h2>
+          <template v-if="activeOrder">
+            <div class="order-progress">
+              <span class="mono big">{{ activeOrder.packed_quantity }}</span>
+              <span class="muted"> / {{ activeOrder.target_quantity }}</span>
+            </div>
+            <div class="kv"><span>等级</span><span class="mono">{{ activeOrder.grade_code }}</span></div>
+            <div class="kv"><span>状态</span><span>{{ statusText(activeOrder.status) }}</span></div>
+          </template>
+          <div v-else class="empty-hint">暂无进行中的订单</div>
+
+          <h2 style="margin-top:16px">PLC 已装锭数</h2>
+          <div class="plc-count" :class="{ warn: plcDelayed }">
+            {{ plcDelayed ? 'PLC 未连接' : (plcCount ?? '—') }}
+          </div>
+
+          <button class="btn-primary" :disabled="!pallets.length" @click="openPrint">
+            补打标签
+          </button>
+        </section>
+      </div>
+
+      <section class="panel list-panel">
+        <h2>最近栈板</h2>
+        <div class="list">
+          <div v-for="p in pallets" :key="p.id" class="list-item">
+            <span class="mono">{{ p.code }}</span>
+            <span class="mono">{{ p.grade_code || '—' }}</span>
+            <span class="mono">{{ p.bobbin_count }} 锭</span>
+            <span class="muted">{{ formatTime(p.created_at) }}</span>
+          </div>
+          <div v-if="!pallets.length" class="empty-hint">暂无栈板记录</div>
         </div>
-        <n-space style="margin:12px 0">
-          <n-button size="small" type="primary" @click="requireAuth(() => showCreateOrder=true)">新建订单</n-button>
-        </n-space>
-        <n-data-table :columns="orderCols" :data="orders" :bordered="false" size="small" />
-      </n-tab-pane>
-      <n-tab-pane name="pallets" tab="托盘记录">
-        <n-data-table :columns="palletCols" :data="pallets" :bordered="false" size="small" />
-      </n-tab-pane>
-      <n-tab-pane name="print" tab="打印管理">
-        <n-button size="small" @click="requireAuth(() => { showPrint = true })">补打标签</n-button>
-        <n-empty v-if="pallets.length === 0" description="暂无托盘，包装完成后可补打标签" style="margin-top:24px" />
-        <n-data-table v-else :columns="printCols" :data="pallets" :bordered="false" size="small" style="margin-top:12px" />
-      </n-tab-pane>
-    </n-tabs>
+      </section>
+    </div>
+
     <n-modal v-model:show="showCreateOrder" preset="card" title="新建包装订单" style="width:420px">
       <n-form label-placement="left" label-width="80">
         <n-form-item label="批次">
@@ -62,37 +111,104 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, h } from 'vue'
-import { NButton } from 'naive-ui'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import http from '../../api/http'
 import { tStatus, formatTime } from '../../utils/status'
 import { useAuth } from '../../composables/useAuth'
-import { useEdge } from '../../composables/useEdge'
 import { useMessage } from 'naive-ui'
 import LoginModal from '../../components/LoginModal.vue'
-import ModuleAlert from '../../components/ModuleAlert.vue'
 import PrintLabelModal from '../../components/PrintLabelModal.vue'
 
-const { isLoggedIn, userName, requireAuth, logout } = useAuth()
-const { serverOnline, checkServer } = useEdge()
+const { requireAuth } = useAuth()
 const message = useMessage()
-const tab = ref('orders')
+
 const clock = ref('')
+const online = ref(true)
+const queueDepth = ref(0)
 const orders = ref<any[]>([])
 const pallets = ref<any[]>([])
-const showCreateOrder = ref(false)
+const lots = ref<any[]>([])
 const showPrint = ref(false)
-// 从托盘记录里点"补打"时带过去的数据
 const printPreset = ref<any>({})
 
-// --- 新建包装订单 ---
-// 按钮原来只把 showCreateOrder 置 true，但没有对应弹窗，点了没反应。
+// 垛型来自现场配置（/edge/config 的 applied.pallets）。
+// 不写死层数与列数：不同产品/包装机的垛型不同，且 PLC 只给得出总层数。
+const layout = ref<any>(null)
+
+// PLC 实时已装锭数：用来算"当前装到第几格"
+const plcCount = ref<number | null>(null)
+const plcDelayed = ref(false)
+
 const creating = ref(false)
-const lots = ref<any[]>([])
+const showCreateOrder = ref(false)
 const newOrder = ref<{ lot_id: number | null; grade_code: string; target_quantity: number }>({
   lot_id: null, grade_code: 'A', target_quantity: 48,
 })
 const lotOpts = computed(() => lots.value.map(l => ({ label: `${l.code} ${l.name || ''}`.trim(), value: l.id })))
+
+let timer: any
+let plcTimer: any
+
+const activeOrder = computed(() => orders.value.find(o => o.status === 'in_progress'))
+
+// loaded：以 PLC 为准。PLC 读不到时退回最近一垛的记录数，
+// 但界面上会明确标 PLC 未连接——冻结的数字会被误读成"没在装"。
+const loaded = computed(() => {
+  if (plcCount.value !== null) return plcCount.value
+  return 0
+})
+
+// 把"整垛第 n 锭"换算成层/位。与后端 bobbincode 的 Locate 同一套语义：
+// 每位置放 bobbins_per_position 锭，按层从下往上顺序填。
+const currentCell = computed(() => {
+  if (!layout.value || plcCount.value === null || plcCount.value <= 0) return null
+  const per = layout.value.bobbins_per_position || 1
+  const posIndex = Math.floor((plcCount.value - 1) / per) + 1
+  let acc = 0
+  for (const l of layout.value.layers) {
+    if (posIndex <= acc + l.positions) {
+      return { layer: l.layer, position: posIndex - acc }
+    }
+    acc += l.positions
+  }
+  return null
+})
+
+function cellState(layer: number, position: number) {
+  if (!layout.value) return {}
+  const per = layout.value.bobbins_per_position || 1
+  // 该格之前已经装了多少锭
+  let acc = 0
+  for (const l of layout.value.layers) {
+    if (l.layer === layer) { acc += position - 1; break }
+    acc += l.positions
+  }
+  const filled = acc * per
+  const cur = currentCell.value
+  return {
+    filled: loaded.value > filled + per - 1,
+    current: !!cur && cur.layer === layer && cur.position === position,
+  }
+}
+
+function statusText(s: string) { return tStatus(s) }
+
+function openPrint() {
+  requireAuth(() => {
+    const last = pallets.value[0]
+    if (last) {
+      // 预填最近一垛，避免人工重敲栈板号敲错
+      printPreset.value = {
+        palletCode: last.code,
+        gradeCode: last.grade_code,
+        bobbinCount: last.bobbin_count,
+        layers: last.layers,
+        totalWeight: last.total_weight || 0,
+      }
+    }
+    showPrint.value = true
+  })
+}
 
 async function doCreateOrder() {
   if (!newOrder.value.lot_id) { message.warning('请选择批次'); return }
@@ -112,77 +228,160 @@ async function doCreateOrder() {
     creating.value = false
   }
 }
-let timer: any
 
-const activeOrder = computed(() => orders.value.find(o => o.status === 'in_progress'))
+async function loadStatus() {
+  try {
+    const r: any = await http.get('/edge/sync/status')
+    online.value = r.data?.online !== false
+    queueDepth.value = r.data?.queue_depth || 0
+  } catch {
+    online.value = false
+  }
+}
 
-const orderCols = [
-  { title: '批次', key: 'lot_id', width: 60 },
-  { title: '等级', key: 'grade_code', width: 60 },
-  { title: '目标', key: 'target_quantity', width: 60 },
-  { title: '已完成', key: 'packed_quantity', width: 70 },
-  { title: '状态', key: 'status', width: 80, render: (r: any) => tStatus(r.status) },
-  { title: '创建时间', key: 'created_at', width: 150, render: (r: any) => formatTime(r.created_at) },
-]
-const palletCols = [
-  { title: '托盘号', key: 'code' },
-  { title: '等级', key: 'grade_code', width: 60 },
-  { title: '丝饼数', key: 'bobbin_count', width: 70 },
-  { title: '层数', key: 'layers', width: 50 },
-  { title: '重量(kg)', key: 'total_weight', width: 80 },
-  { title: '时间', key: 'created_at', width: 150, render: (r: any) => formatTime(r.created_at) },
-]
-const printCols = [
-  { title: '托盘号', key: 'code' },
-  { title: '等级', key: 'grade_code', width: 60 },
-  { title: '丝饼数', key: 'bobbin_count', width: 70 },
-  { title: '时间', key: 'created_at', width: 150, render: (r: any) => formatTime(r.created_at) },
-  {
-    title: '操作', key: 'a', width: 90,
-    render: (r: any) => h(NButton, {
-      size: 'tiny',
-      onClick: () => requireAuth(() => {
-        // 预填这一行的数据，避免人工重敲栈板号敲错
-        printPreset.value = {
-          palletCode: r.code,
-          gradeCode: r.grade_code,
-          bobbinCount: r.bobbin_count,
-          layers: r.layers,
-          totalWeight: r.total_weight || 0,
-        }
-        showPrint.value = true
-      }),
-    }, () => '补打'),
-  },
-]
+async function loadLayout() {
+  try {
+    const r: any = await http.get('/edge/config')
+    const doc = r.data?.applied
+    const pallets = doc?.pallets
+    if (!pallets?.layouts?.length) { layout.value = null; return }
+    const code = pallets.default || pallets.layouts[0].code
+    const raw = pallets.layouts.find((l: any) => l.code === code) || pallets.layouts[0]
+
+    // 配置里只有"每层几个位置"，容量与每层起始序号要现算。
+    // 后端 BuildPalletLayout 在应用配置时也算过一次，但那是服务端结构，
+    // 随 /edge/config 下发的是**配置原文**，不含推导结果。
+    // 这里按同一套规则（层从下往上、每位置 bobbins_per_position 锭）复算。
+    const per = raw.bobbins_per_position || 1
+    const layers = (raw.layers || [])
+      .slice()
+      .sort((a: any, b: any) => a.layer - b.layer)
+      .map((l: any) => ({ layer: l.layer, positions: l.positions }))
+    const totalPositions = layers.reduce((s: number, l: any) => s + l.positions, 0)
+
+    layout.value = {
+      code: raw.code,
+      bobbins_per_position: per,
+      layers,
+      capacity: totalPositions * per,
+    }
+  } catch {
+    layout.value = null
+  }
+}
 
 async function load() {
-  const [oRes, pRes, lRes]: any[] = await Promise.all([
-    http.get('/packing-orders?page=1&page_size=20'),
-    http.get('/pallets?page=1&page_size=20'),
-    http.get('/lots?status=active&page=1&page_size=100'),
-  ])
-  orders.value = oRes.data?.items || []
-  pallets.value = pRes.data?.items || []
-  lots.value = lRes.data?.items || []
-  checkServer()
+  try {
+    const [oRes, pRes, lRes]: any[] = await Promise.all([
+      http.get('/packing-orders?page=1&page_size=20'),
+      http.get('/pallets?page=1&page_size=20'),
+      http.get('/lots?status=active&page=1&page_size=100'),
+    ])
+    orders.value = oRes.data?.items || []
+    pallets.value = pRes.data?.items || []
+    lots.value = lRes.data?.items || []
+  } catch {
+    online.value = false
+  }
+  loadStatus()
+}
+
+async function loadPlc() {
+  try {
+    const r: any = await http.get('/edge/plc/values')
+    plcDelayed.value = false
+    const devices = (r.data?.devices || {}) as Record<string, Record<string, any>>
+    for (const values of Object.values(devices)) {
+      for (const [key, v] of Object.entries(values || {})) {
+        // 打包机上报的已装锭数
+        if (/BobbinCount|Bobbin_Count|Palletizer.*Count/i.test(key)) {
+          const n = Number(v)
+          if (Number.isFinite(n) && n >= 0) { plcCount.value = n; return }
+        }
+      }
+    }
+    plcCount.value = null
+  } catch {
+    plcDelayed.value = true
+    plcCount.value = null
+  }
 }
 
 onMounted(() => {
-  timer = setInterval(() => { clock.value = new Date().toLocaleTimeString('zh-CN', { hour12: false }); load() }, 20000)
-  clock.value = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+  const tick = () => { clock.value = new Date().toLocaleTimeString('zh-CN', { hour12: false }) }
+  tick()
   load()
+  loadLayout()
+  loadPlc()
+  timer = setInterval(() => { tick(); load() }, 5000)
+  plcTimer = setInterval(loadPlc, 1000)
 })
-onUnmounted(() => clearInterval(timer))
+onUnmounted(() => { clearInterval(timer); clearInterval(plcTimer) })
 </script>
 
 <style scoped>
-.station { height:100vh; background:#0d1117; padding:16px; overflow:auto; }
-.station-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-.station-header h1 { font-size:18px; color:#00d4ff; margin:0; }
-.header-info { display:flex; align-items:center; gap:12px; }
-.clock { font-family:monospace; color:#8b949e; }
-.user { font-size:12px; color:#63e2b7; }
-.order-active { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; }
-.order-active h3 { margin:0 0 8px; font-size:14px; color:#63e2b7; }
+.station { height:100vh; background:#0d1117; padding:16px; display:flex; flex-direction:column; overflow:hidden; }
+.station-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-shrink:0; }
+.station-header h1 { font-size:22px; color:#00d4ff; margin:0; }
+.header-info { display:flex; align-items:center; gap:16px; }
+.clock { font-family:monospace; color:#8b949e; font-size:20px; }
+
+.body { flex:1; display:flex; flex-direction:column; gap:12px; min-height:0; transition:filter .2s; }
+.body.dim { filter:grayscale(.75); }
+
+.row { display:flex; gap:12px; }
+.row.grow { flex:1; min-height:0; }
+
+.panel { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
+.panel h2 { margin:0 0 12px; font-size:16px; color:#8b949e; font-weight:500; }
+.layout-tag { font-size:13px; color:#6e7681; margin-left:8px; }
+
+.grid-panel { flex:1.6; display:flex; flex-direction:column; min-height:0; }
+.progress-line { font-size:18px; color:#c9d1d9; margin-bottom:16px; }
+.cell-hint { color:#00d4ff; }
+.big { font-size:38px; font-weight:700; color:#e6edf3; font-variant-numeric:tabular-nums; }
+
+.layers { flex:1; display:flex; flex-direction:column; gap:10px; justify-content:center; overflow-y:auto; }
+.layer { display:flex; align-items:center; gap:12px; }
+.layer-label { width:36px; font-family:monospace; font-size:14px; color:#6e7681; text-align:right; }
+.cells { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* 格子比进度条有用：它回答"下一个装哪" */
+.cell {
+  width:64px; height:64px; border-radius:6px;
+  border:2px solid #30363d; background:#0d1117;
+  transition:background .2s, border-color .2s, transform .2s;
+}
+.cell.filled { background:#1f6feb33; border-color:#1f6feb; }
+.cell.current {
+  background:#f0b429; border-color:#f0b429;
+  animation:pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform:scale(1); }
+  50% { transform:scale(1.08); }
+}
+
+.side-panel { flex:1; display:flex; flex-direction:column; min-height:0; }
+.order-progress { margin-bottom:12px; }
+.kv { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #21262d; font-size:18px; color:#c9d1d9; }
+.plc-count { font-size:44px; font-weight:700; color:#00d4ff; font-variant-numeric:tabular-nums; margin-bottom:16px; }
+.plc-count.warn { font-size:20px; color:#f0b429; }
+
+/* 主操作：112px 高，戴手套也能稳按 */
+.btn-primary {
+  height:112px; width:100%; margin-top:auto; border-radius:10px; border:none; cursor:pointer;
+  background:#1f6feb; color:#fff; font-size:28px; font-weight:600;
+  transition: transform .06s, filter .06s;
+}
+.btn-primary:active:not(:disabled) { transform:translateY(2px); filter:brightness(1.35); }
+.btn-primary:disabled { background:#30363d; color:#6e7681; cursor:not-allowed; }
+
+.list-panel { flex:0 0 180px; display:flex; flex-direction:column; min-height:0; }
+.list { flex:1; overflow-y:auto; }
+.list-item { display:flex; gap:20px; align-items:center; padding:8px; border-bottom:1px solid #21262d;
+  font-size:16px; color:#c9d1d9; }
+.mono { font-family:monospace; }
+.muted { color:#6e7681; font-size:15px; }
+.empty-hint { color:#6e7681; font-size:16px; padding:12px 0; }
 </style>
