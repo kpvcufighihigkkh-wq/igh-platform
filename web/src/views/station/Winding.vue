@@ -34,11 +34,12 @@
     </n-card>
     <n-card title="料车状态" size="small" style="margin-top:12px">
       <template #header-extra>
-        <n-button size="tiny" @click="requireAuth(() => {})">补打标签</n-button>
+        <n-button size="tiny" @click="requireAuth(() => { showPrint = true })">补打标签</n-button>
       </template>
       <n-data-table :columns="trolleyCols" :data="trolleys" :bordered="false" size="small" :max-height="150" />
     </n-card>
     <LoginModal />
+    <PrintLabelModal v-model:show="showPrint" />
   </div>
 </template>
 
@@ -49,6 +50,7 @@ import { tStatus, formatTime } from '../../utils/status'
 import { useAuth } from '../../composables/useAuth'
 import LoginModal from '../../components/LoginModal.vue'
 import ModuleAlert from '../../components/ModuleAlert.vue'
+import PrintLabelModal from '../../components/PrintLabelModal.vue'
 
 const { isLoggedIn, userName, requireAuth, logout } = useAuth()
 const clock = ref('')
@@ -58,6 +60,7 @@ const todayBobbin = ref(0)
 const doffings = ref<any[]>([])
 const trolleys = ref<any[]>([])
 const showLotEdit = ref(false)
+const showPrint = ref(false)
 let timer: any
 
 const doffCols = [

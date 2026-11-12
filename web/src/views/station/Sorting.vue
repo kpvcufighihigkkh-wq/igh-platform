@@ -77,7 +77,7 @@ async function submitSorting() {
 async function load() {
   const [bRes, dRes]: any[] = await Promise.all([
     http.get('/bobbins?page=1&page_size=30'),
-    http.get('/stats/grade-distribution'),
+    http.get('/quality/distribution'),
   ])
   bobbins.value = bRes.data?.items || []
   dist.value = dRes.data || []

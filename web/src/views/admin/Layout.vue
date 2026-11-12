@@ -27,7 +27,7 @@ import { useAuthStore } from '../../stores/auth'
 import { NIcon } from 'naive-ui'
 import ModuleAlert from '../../components/ModuleAlert.vue'
 import http from '../../api/http'
-import { GridOutline, BarChartOutline, CubeOutline, HardwareChipOutline, AlertCircleOutline, CartOutline, BuildOutline, StatsChartOutline, SettingsOutline, SyncOutline, CarOutline, OptionsOutline } from '@vicons/ionicons5'
+import { GridOutline, BarChartOutline, CubeOutline, HardwareChipOutline, AlertCircleOutline, CartOutline, BuildOutline, StatsChartOutline, SettingsOutline, SyncOutline, CarOutline, OptionsOutline, ConstructOutline, SearchOutline } from '@vicons/ionicons5'
 import type { MenuOption } from 'naive-ui'
 
 const router = useRouter()
@@ -41,7 +41,7 @@ const titles: Record<string, string> = {
   AdminDashboard: '管理总览', AdminProduction: '生产管理', AdminQuality: '质量管理',
   AdminOrders: '订单管理', AdminWarehouse: '仓库管理', AdminMaintenance: '维保管理',
   AdminAlarms: '异常管理', AdminStatistics: '统计分析', AdminDevices: '设备管理', AdminSettings: '系统设置',
-  AdminERP: 'ERP对接', AdminVehicles: '载具管理', AdminLineConfig: '产线配置',
+  AdminERP: 'ERP对接', AdminVehicles: '载具管理', AdminLineConfig: '产线配置', AdminSiteConfig: '现场配置',
 }
 const currentTitle = computed(() => titles[activeKey.value] || 'IGH 管理后台')
 
@@ -58,7 +58,10 @@ const menuOptions = computed<MenuOption[]>(() => [
   { label: '载具管理', key: 'AdminVehicles', icon: icon(CarOutline), disabled: modules.value.Vehicle === false },
   { label: '设备管理', key: 'AdminDevices', icon: icon(HardwareChipOutline) },
   { label: '产线配置', key: 'AdminLineConfig', icon: icon(OptionsOutline) },
+  { label: '现场配置', key: 'AdminSiteConfig', icon: icon(ConstructOutline) },
   { label: '异常管理', key: 'AdminAlarms', icon: icon(AlertCircleOutline) },
+  // 追溯不挂模块开关：查货的来历不该因为某个模块被关掉而查不了
+  { label: '全链追溯', key: 'AdminTrace', icon: icon(SearchOutline) },
   { label: '统计分析', key: 'AdminStatistics', icon: icon(StatsChartOutline) },
   { label: '系统设置', key: 'AdminSettings', icon: icon(SettingsOutline) },
 ])

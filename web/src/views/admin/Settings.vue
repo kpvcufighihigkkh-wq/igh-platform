@@ -55,6 +55,16 @@
         </n-space>
         <n-data-table :columns="dictCols" :data="dictItems" :bordered="false" size="small" />
       </n-tab-pane>
+      <n-tab-pane name="users" tab="用户管理">
+        <n-space justify="space-between" style="margin-bottom:12px">
+          <n-input v-model:value="userKeyword" placeholder="搜索用户名或姓名" clearable style="width:240px" @update:value="fetchUsers" />
+          <n-button type="primary" size="small" @click="openUserForm()">新增用户</n-button>
+        </n-space>
+        <n-data-table :columns="userCols" :data="users" :bordered="false" size="small" />
+        <n-alert v-if="legacyHashCount > 0" type="warning" style="margin-top:12px">
+          还有 {{ legacyHashCount }} 个账号使用旧口令哈希，用户下次登录时会自动升级为加盐哈希。
+        </n-alert>
+      </n-tab-pane>
       <n-tab-pane name="logs" tab="系统日志">
         <n-button size="small" @click="fetchLogs" style="margin-bottom:8px">刷新</n-button>
         <div class="log-box"><pre>{{ logLines.join('\n') }}</pre></div>
@@ -93,13 +103,31 @@
         <n-button type="primary" block @click="saveDict">保存</n-button>
       </n-form>
     </n-modal>
+    <!-- 用户表单 -->
+    <n-modal v-model:show="showUserForm" preset="card" :title="userForm.id?'编辑用户':'新增用户'" style="width:420px">
+      <n-form :model="userForm" label-placement="left" label-width="70">
+        <n-form-item label="用户名">
+          <n-input v-model:value="userForm.username" :disabled="!!userForm.id" placeholder="登录名，创建后不可修改" />
+        </n-form-item>
+        <n-form-item v-if="!userForm.id" label="初始口令">
+          <n-input v-model:value="userForm.password" type="password" show-password-on="click" placeholder="至少 8 位" />
+        </n-form-item>
+        <n-form-item label="姓名"><n-input v-model:value="userForm.name" /></n-form-item>
+        <n-form-item label="电话"><n-input v-model:value="userForm.phone" placeholder="选填" /></n-form-item>
+        <n-form-item label="角色"><n-select v-model:value="userForm.role_id" :options="roleOpts" /></n-form-item>
+        <n-form-item v-if="userForm.id" label="状态">
+          <n-select v-model:value="userForm.status" :options="[{label:'启用',value:1},{label:'停用',value:0}]" />
+        </n-form-item>
+        <n-button type="primary" block @click="saveUser">保存</n-button>
+      </n-form>
+    </n-modal>
 
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, h, computed } from 'vue'
-import { NButton, NSpace } from 'naive-ui'
+import { NButton, NSpace, NTag } from 'naive-ui'
 import http from '../../api/http'
 import { tStation, tStatus } from '../../utils/status'
 
@@ -120,6 +148,15 @@ const dictCategory = ref('device_type')
 const dictForm = ref({ id: 0, category: '', code: '', name: '', sort: 0 })
 const dictCategories = ref<any[]>([])
 const dictCategoryOpts = computed(() => dictCategories.value.map(d => ({ label: d.name, value: d.code })))
+
+// --- 用户管理 ---
+const users = ref<any[]>([])
+const roles = ref<any[]>([])
+const userKeyword = ref('')
+const showUserForm = ref(false)
+const userForm = ref({ id: 0, username: '', password: '', name: '', phone: '', role_id: 0, status: 1 })
+const legacyHashCount = ref(0)
+const roleOpts = computed(() => roles.value.map((r: any) => ({ label: r.name, value: r.id })))
 
 const stationOpts = [
   { label: '卷绕工位', value: 'winding' },
@@ -161,9 +198,27 @@ const dictCols = [
     h(NButton, { size: 'tiny', type: 'error', onClick: () => delDict(r.id) }, () => '删除'),
   ]) },
 ]
+const userCols = [
+  { title: '用户名', key: 'username', width: 120 },
+  { title: '姓名', key: 'name', width: 100 },
+  { title: '角色', key: 'role_name', width: 110 },
+  { title: '电话', key: 'phone', width: 130 },
+  { title: '状态', key: 'status', width: 80, render: (r: any) =>
+    h(NTag, { size: 'small', type: r.status === 1 ? 'success' : 'default' },
+      () => (r.status === 1 ? '启用' : '停用')) },
+  { title: '操作', key: 'a', width: 200, render: (r: any) => h(NSpace, { size: 4 }, () => [
+    h(NButton, { size: 'tiny', onClick: () => openUserForm(r) }, () => '编辑'),
+    h(NButton, { size: 'tiny', onClick: () => resetPassword(r) }, () => '重置口令'),
+    // 停用的账号允许重新启用；停用与删除都不物理删记录
+    h(NButton, {
+      size: 'tiny',
+      type: r.status === 1 ? 'error' : 'primary',
+      onClick: () => toggleUserStatus(r),
+    }, () => (r.status === 1 ? '停用' : '启用')),
+  ]) },
+]
 
-const moduleList = [
-  { key: 'Winding', label: '卷绕区', desc: '批次管理、落纱记录、丝饼数据、料车状态、卷绕工位页面' },
+const moduleList = [  { key: 'Winding', label: '卷绕区', desc: '批次管理、落纱记录、丝饼数据、料车状态、卷绕工位页面' },
   { key: 'Quality', label: '质检区', desc: '等级定义、称重规则、分拣结果录入、视觉检测、分拣工位页面' },
   { key: 'Warehouse', label: '仓库区', desc: '库位管理、入库/出库操作、仓库看板、仓库工位页面' },
   { key: 'Packaging', label: '包装区', desc: '拣选订单、打包订单、托盘管理、包装工位页面' },
@@ -212,6 +267,75 @@ async function fetchLogs() { logLines.value = ((await http.get('/admin/logs?line
 async function fetchDictCategories() { dictCategories.value = ((await http.get('/admin/dict-items?category=dict_category')) as any).data || [] }
 async function fetchDict() { dictItems.value = ((await http.get(`/admin/dict-items?category=${dictCategory.value}`)) as any).data || [] }
 
+// --- 用户管理 ---
+async function fetchUsers() {
+  const res: any = await http.get(`/admin/users?keyword=${encodeURIComponent(userKeyword.value)}`)
+  users.value = res.data?.items || []
+  try {
+    const hc: any = await http.get('/admin/users/legacy-hash-count')
+    legacyHashCount.value = hc.data?.count || 0
+  } catch { legacyHashCount.value = 0 }
+}
+async function fetchRoles() { roles.value = ((await http.get('/admin/roles')) as any).data?.items || [] }
+
+function openUserForm(row?: any) {
+  if (row) {
+    userForm.value = {
+      id: row.id, username: row.username, password: '',
+      name: row.name, phone: row.phone || '', role_id: row.role_id, status: row.status,
+    }
+  } else {
+    userForm.value = {
+      id: 0, username: '', password: '', name: '', phone: '',
+      role_id: roles.value.length ? roles.value[0].id : 0, status: 1,
+    }
+  }
+  showUserForm.value = true
+}
+
+async function saveUser() {
+  try {
+    if (userForm.value.id) {
+      // 编辑时不提交 username/password：用户名不可改，口令走独立的改动流程
+      await http.put(`/admin/users/${userForm.value.id}`, {
+        name: userForm.value.name,
+        phone: userForm.value.phone,
+        role_id: userForm.value.role_id,
+        status: userForm.value.status,
+      })
+    } else {
+      await http.post('/admin/users', userForm.value)
+    }
+    showUserForm.value = false
+    fetchUsers()
+  } catch (e: any) {
+    // 服务端用 409 区分"用户名已存在"这类可预期错误，原样提示比"保存失败"有用
+    alert(e?.response?.data?.message || '保存失败')
+  }
+}
+
+async function toggleUserStatus(row: any) {
+  const next = row.status === 1 ? 0 : 1
+  if (next === 0 && !confirm(`确认停用账号 ${row.username}？停用后无法登录，但历史记录保留。`)) return
+  try {
+    await http.put(`/admin/users/${row.id}`, { status: next })
+    fetchUsers()
+  } catch (e: any) {
+    alert(e?.response?.data?.message || '操作失败')
+  }
+}
+
+async function resetPassword(row: any) {
+  const pwd = prompt(`为 ${row.username} 设置新口令（至少 8 位）`)
+  if (!pwd) return
+  try {
+    await http.post(`/admin/users/${row.id}/reset-password`, { password: pwd })
+    alert('口令已重置，请通知本人尽快修改')
+  } catch (e: any) {
+    alert(e?.response?.data?.message || '重置失败')
+  }
+}
+
 async function saveDict() {
   const payload = { ...dictForm.value, category: dictForm.value.category || dictCategory.value }
   if (dictForm.value.id) {
@@ -255,7 +379,7 @@ async function restartService() {
   try { await http.post('/admin/restart') } catch {}
 }
 
-onMounted(() => { fetchBindings(); fetchLines(); fetchProductTypes(); fetchModules(); fetchHA(); fetchDictCategories(); fetchDict() })
+onMounted(() => { fetchBindings(); fetchLines(); fetchProductTypes(); fetchModules(); fetchHA(); fetchDictCategories(); fetchDict(); fetchRoles(); fetchUsers() })
 </script>
 
 <style scoped>
