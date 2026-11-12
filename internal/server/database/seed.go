@@ -1,19 +1,32 @@
 package database
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/igh-platform/igh-platform/internal/server/model"
+	"github.com/igh-platform/igh-platform/internal/shared/bobbincode"
 	"github.com/igh-platform/igh-platform/internal/shared/logger"
+	sharedpw "github.com/igh-platform/igh-platform/internal/shared/password"
 	"gorm.io/gorm"
 )
 
+// hashPwd 生成种子账号的口令哈希。
+//
+// 早期这里用不加盐的 SHA-256，同一个口令在任何系统里都是同一个值，
+// 库一旦泄露可以查表还原。改成 bcrypt；已有的旧哈希在登录时透明升级
+// （见 api.handleLogin），不需要停机迁移。
+//
+// 种子口令都是默认弱口令（admin123 / 123456），低于新口令 8 位的要求，
+// 所以这里不能用 password.Hash（它会拒绝弱口令）——否则首次部署直接失败。
 func hashPwd(pwd string) string {
-	h := sha256.Sum256([]byte(pwd))
-	return fmt.Sprintf("%x", h)
+	h, err := sharedpw.HashForSeed(pwd)
+	if err != nil {
+		// 理论上不会失败（不校验强度）；失败时宁可启动失败也不要存明文
+		panic(fmt.Sprintf("生成种子口令哈希失败: %v", err))
+	}
+	return h
 }
 
 func Seed(db *gorm.DB) {
@@ -199,11 +212,47 @@ func Seed(db *gorm.DB) {
 	now := time.Now()
 	// Doffings and bobbins
 	grades := []string{"AAA", "AA", "AA", "AA", "AA1", "AA2", "A1", "AA"}
+	// 演示数据也要走真实的编码规则。
+	//
+	// 这不是"看起来好看"：丝锭编码是扫码与追溯的唯一入口，
+	// 种子数据没有编码的话，新装一套环境后外检扫不出丝锭、
+	// 追溯查不到货，第一次验收就会被当成功能缺失。
+	//
+	// 机位名用 device/W<N>[/side] 的正式格式（与边端上报一致），
+	// 否则 bobbincode.ParseWinderName 解析失败。
+	seedLine := []struct {
+		lineID int64
+		code   string
+		winder string
+	}{
+		{1, "L01", "WDC-L01/W1/left"},
+		{2, "L02", "WDC-L02/W1/left"},
+	}
 	for i := 1; i <= 12; i++ {
-		doff := model.Doffing{LineID: int64((i-1)%2 + 1), WinderName: "WDC-L01-1A", DoffNo: i, LotID: lots[0].ID, BobbinCount: 8, CreatedAt: now.Add(-time.Duration(12-i) * time.Hour)}
+		ln := seedLine[(i-1)%2]
+		endTime := now.Add(-time.Duration(12-i) * time.Hour)
+		doff := model.Doffing{
+			LineID: ln.lineID, WinderName: ln.winder, DoffNo: i,
+			LotID: lots[0].ID, BobbinCount: 8,
+			EndTime: &endTime, CreatedAt: endTime,
+		}
 		db.Create(&doff)
+
+		ident, err := bobbincode.ParseWinderName(ln.winder)
+		if err != nil {
+			// 种子数据本身写错，直接让启动暴露出来而不是静默跳过
+			panic(fmt.Sprintf("种子数据机位名非法: %v", err))
+		}
 		for j := 1; j <= 8; j++ {
-			b := model.Bobbin{DoffingID: doff.ID, PlaceInWinder: j, LotID: lots[0].ID, Status: "completed", CurrentPosition: "warehouse", SortingGrade: grades[(i+j)%len(grades)], FinalGrade: grades[(i+j)%len(grades)]}
+			code, err := bobbincode.Build(lots[0].Code, ln.code, ident.Winder, ident.Side, i, j, endTime)
+			if err != nil {
+				panic(fmt.Sprintf("种子数据生成丝锭编码失败: %v", err))
+			}
+			b := model.Bobbin{
+				Code: code, DoffingID: doff.ID, PlaceInWinder: j, LotID: lots[0].ID,
+				Status: "completed", CurrentPosition: "warehouse",
+				SortingGrade: grades[(i+j)%len(grades)], FinalGrade: grades[(i+j)%len(grades)],
+			}
 			w := 3.2 + float64((i+j)%10)*0.05
 			b.Weight = &w
 			b.WeightGrade = "pass"
@@ -282,4 +331,3 @@ func Seed(db *gorm.DB) {
 }
 
 func intPtr(v int) *int { return &v }
-

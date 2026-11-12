@@ -2,10 +2,12 @@ package admin
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/igh-platform/igh-platform/internal/server/archive"
 	"github.com/igh-platform/igh-platform/internal/server/model"
 	"github.com/igh-platform/igh-platform/internal/server/service"
 	"github.com/igh-platform/igh-platform/internal/shared/config"
@@ -16,10 +18,12 @@ type Handler struct {
 	svc     *service.AdminService
 	cfg     *config.ProjectConfig
 	logPath string
+	// archiver 为 nil 表示归档未启用
+	archiver *archive.Service
 }
 
-func NewHandler(svc *service.AdminService, cfg *config.ProjectConfig, logPath string) *Handler {
-	return &Handler{svc: svc, cfg: cfg, logPath: logPath}
+func NewHandler(svc *service.AdminService, cfg *config.ProjectConfig, logPath string, archiver *archive.Service) *Handler {
+	return &Handler{svc: svc, cfg: cfg, logPath: logPath, archiver: archiver}
 }
 
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
@@ -48,6 +52,9 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	admin.PUT("/ha-status", h.updateHA)
 	admin.POST("/restart", h.restart)
 	admin.GET("/logs", h.tailLogs)
+	// 数据归档：手动触发一次。dry_run=1 时只统计不删除。
+	admin.POST("/archive/run", h.runArchive)
+	admin.GET("/archive/config", h.archiveConfig)
 }
 
 func (h *Handler) listSettings(c *gin.Context) {
@@ -330,4 +337,38 @@ func tailFile(path string, n int) ([]string, error) {
 		all = all[len(all)-n:]
 	}
 	return all, nil
+}
+
+// runArchive 手动触发一次归档。
+//
+// 支持 dry_run=1 只统计不删除：上线前先用它演练，确认"会删什么"符合预期。
+// 归档是重操作（读+写文件+删），这里同步执行而不是丢后台：
+// 运维点完要能立刻看到结果，而不是过一会儿去翻日志。
+func (h *Handler) runArchive(c *gin.Context) {
+	if h.archiver == nil {
+		c.JSON(400, types.Response{Code: 400, Message: "归档未启用（project.yaml 的 archive.enabled）"})
+		return
+	}
+	dryRun := c.Query("dry_run") == "1" || c.Query("dry_run") == "true"
+	h.archiver.DryRun = dryRun
+
+	results := h.archiver.Run(context.Background())
+	c.JSON(200, types.Response{Code: 0, Data: gin.H{
+		"dry_run": dryRun,
+		"results": results,
+	}})
+}
+
+// archiveConfig 返回当前归档配置，供前端展示。
+func (h *Handler) archiveConfig(c *gin.Context) {
+	a := h.cfg.Archive.Defaults()
+	c.JSON(200, types.Response{Code: 0, Data: gin.H{
+		"enabled":      h.cfg.Archive.Enabled,
+		"dir":          a.Dir,
+		"doffing_days": a.DoffingDays,
+		"event_days":   a.EventDays,
+		"erp_days":     a.ERPDays,
+		"hour":         a.Hour,
+		"dry_run":      a.DryRun,
+	}})
 }

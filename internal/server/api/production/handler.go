@@ -31,6 +31,12 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup, mw ...gin.HandlerFunc) {
 	g.GET("/doffings", h.listDoffings)
 	g.GET("/bobbins", h.listBobbins)
 	g.GET("/bobbins/:id", h.getBobbin)
+	// 按业务编码查丝锭：追溯的起点。
+	// 客户投诉时手上只有丝锭上的编码，没有自增 id。
+	g.GET("/bobbins/by-code/:code", h.getBobbinByCode)
+	// 料车列表：工位页面"料车状态"表格调用。
+	// 之前只写了 listTrolleys 方法却漏了注册，前端拿到的是 404。
+	g.GET("/trolleys", h.listTrolleys)
 }
 
 func (h *Handler) listLots(c *gin.Context) {
@@ -42,6 +48,17 @@ func (h *Handler) listLots(c *gin.Context) {
 		return
 	}
 	c.JSON(200, types.Response{Code: 0, Data: gin.H{"items": lots, "total": total}})
+}
+
+// getBobbinByCode 按业务编码查丝锭，是追溯链的起点。
+func (h *Handler) getBobbinByCode(c *gin.Context) {
+	code := c.Param("code")
+	bobbin, err := h.svc.GetBobbinByCode(code)
+	if err != nil {
+		c.JSON(404, types.Response{Code: 404, Message: "bobbin not found"})
+		return
+	}
+	c.JSON(200, types.Response{Code: 0, Data: bobbin})
 }
 
 func (h *Handler) getLot(c *gin.Context) {

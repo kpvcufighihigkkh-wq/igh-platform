@@ -64,6 +64,11 @@ func (h *Handler) update(c *gin.Context) {
 
 func (h *Handler) del(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	h.db.Delete(&model.Vehicle{}, id)
+	// 删除失败必须报错：返回 200 会让界面以为删掉了，
+	// 实际库里还在，刷新后又出现。
+	if err := h.db.Delete(&model.Vehicle{}, id).Error; err != nil {
+		c.JSON(500, types.Response{Code: 500, Message: err.Error()})
+		return
+	}
 	c.JSON(200, types.Response{Code: 0})
 }

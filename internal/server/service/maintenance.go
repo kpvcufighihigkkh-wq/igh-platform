@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/igh-platform/igh-platform/internal/server/model"
@@ -91,7 +92,13 @@ func (s *MaintenanceService) RecordMaintenance(planID *int64, equipmentID, opera
 		if s.db.First(&plan, *planID).Error == nil && plan.TriggerType == "interval" && plan.IntervalHours != nil {
 			now := time.Now()
 			next := now.Add(time.Duration(*plan.IntervalHours) * time.Hour)
-			s.db.Model(&plan).Updates(map[string]any{"last_done_at": now, "next_due_at": next})
+			// 写失败必须返回：保养记录已落库、但计划的"下次到期时间"没更新，
+			// 计划会一直显示已逾期，现场按它做保养就会重复做。
+			if err := s.db.Model(&plan).Updates(map[string]any{
+				"last_done_at": now, "next_due_at": next,
+			}).Error; err != nil {
+				return fmt.Errorf("更新保养计划下次到期时间失败: %w", err)
+			}
 		}
 	}
 	return nil
