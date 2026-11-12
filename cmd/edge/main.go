@@ -7,12 +7,17 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/igh-platform/igh-platform/internal/edge/handler"
-	"github.com/igh-platform/igh-platform/internal/edge/plc"
-	"github.com/igh-platform/igh-platform/internal/edge/queue"
+	"github.com/igh-platform/igh-platform/internal/edge/app"
 	"github.com/igh-platform/igh-platform/internal/shared/config"
 	"github.com/igh-platform/igh-platform/internal/shared/logger"
+
+	_ "github.com/igh-platform/igh-platform/internal/edge/plugin/packaging"
+	_ "github.com/igh-platform/igh-platform/internal/edge/plugin/sorting"
+	_ "github.com/igh-platform/igh-platform/internal/edge/plugin/warehouse"
+	_ "github.com/igh-platform/igh-platform/internal/edge/plugin/winding"
 )
+
+var version = "dev"
 
 func main() {
 	configDir := flag.String("config", config.ConfigDir(), "config directory path")
@@ -21,30 +26,36 @@ func main() {
 
 	logger.Init(*logLevel)
 
-	cfg, err := config.Load(*configDir)
+	cfg, err := config.LoadEdge(*configDir)
 	if err != nil {
-		log.Fatalf("load config: %v", err)
+		log.Fatalf("load edge config: %v", err)
 	}
 
-	edgeID := os.Getenv("IGH_EDGE_ID")
-	if edgeID == "" {
-		log.Fatal("IGH_EDGE_ID environment variable required")
+	cfg.Edge.Version = version
+
+	logger.L.Infow("starting igh-edge",
+		"edge_id", cfg.Edge.ID,
+		"type", cfg.Edge.Type,
+		"version", version,
+		"line", cfg.Edge.Line.Code,
+	)
+
+	edge, err := app.New(cfg)
+	if err != nil {
+		log.Fatalf("init edge app: %v", err)
 	}
+	defer edge.Close()
 
-	logger.L.Infow("starting igh-edge", "edge_id", edgeID, "project", cfg.Project.Name)
-
-	offlineQueue := queue.New("./data/queue")
-	plcManager := plc.NewManager(*configDir)
-	edgeHandler := handler.New(edgeID, cfg, plcManager, offlineQueue)
-
-	go plcManager.Start()
-	go edgeHandler.Start()
+	errCh := make(chan error, 1)
+	go func() { errCh <- edge.Run() }()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
 
-	logger.L.Info("shutting down edge node")
-	plcManager.Stop()
-	offlineQueue.Close()
+	select {
+	case sig := <-quit:
+		logger.L.Infow("shutting down edge node", "signal", sig.String())
+	case err := <-errCh:
+		log.Fatalf("edge server error: %v", err)
+	}
 }
