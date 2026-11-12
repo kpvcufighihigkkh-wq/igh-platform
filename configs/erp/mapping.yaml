@@ -1,0 +1,139 @@
+# ERP 字段映射 —— 新系统表 → fangsi 库表
+#
+# 为什么需要这份文件：
+#   ERP 侧的字段名与语义由对方系统决定，与新系统几乎没有同名同义的字段。
+#   例如 fangsi.doffings 有 order_code / specification / paper_tube，
+#   而新系统的 doffings 是 line_id / doff_no / lot_id。
+#   把对应关系写在配置里，对方改表结构时只改这里，不用改代码重新发版。
+#
+# 取值语法（三种，按优先级）：
+#   const:    固定值
+#   from:     点路径，支持嵌套与下标，如 lot.code / doffings[0]
+#   fallback: 主路径取到空值时回退的路径
+#
+# 可用路径说明（由 buildView 构造）：
+#   doffings 视图: id, line_id, winder_name, doff_no, lot_id, shift_id,
+#                  end_time, bobbin_count, created_at,
+#                  lot.{code,name,order_code,specification,paper_tube_color},
+#                  line.{code,name}
+#   trolleys 视图: id, number, rfid, lot_id, doffing_ids, loading_time,
+#                  line_id, status, created_at,
+#                  lot.{code,order_code,specification},
+#                  line.{code,name},
+#                  doffings[0], doffings[1]  ← 落筒 id，供一车两落筒的扁平结构使用
+#   pallets  视图: id, code, lot_id, grade_code, layers, bobbin_count,
+#                  total_weight, packing_order_id, status, created_at,
+#                  product_date, palletizer_id, daily_id, rfid,
+#                  lot.{code,order_code,specification}
+#
+# 重要：key 必须填 ERP 侧真正的主键列，用于 ON DUPLICATE KEY UPDATE 保证幂等。
+# 填错不会报错，但重试时会插入重复行。
+
+tables:
+  # ---------------------------------------------------------------------------
+  # 落筒 → fangsi.doffings
+  #
+  # fangsi.doffings 结构（已核对 fangsi.sql）：
+  #   id 流水号 / lot_code 批号 / order_code 工单编号 / specification 规格
+  #   line_name 落筒线 / winder_name 卷绕头 / created 创建时间 / paper_tube 纸管
+  # ---------------------------------------------------------------------------
+  doffings:
+    target: doffings
+    key: id
+    columns:
+      id:
+        from: id
+      lot_code:
+        from: lot.code
+      order_code:
+        from: lot.order_code
+      specification:
+        from: lot.specification
+      line_name:
+        from: line.name
+      winder_name:
+        from: winder_name
+      # 落筒完成时间优先；未上报时回退到记录创建时间
+      created:
+        from: end_time
+        fallback: created_at
+      # 纸管颜色在 ERP 侧叫 paper_tube，来自批次主数据
+      paper_tube:
+        from: lot.paper_tube_color
+
+  # ---------------------------------------------------------------------------
+  # 料车 → fangsi.trolleys
+  #
+  # fangsi.trolleys 结构（已核对 fangsi.sql）：
+  #   id / trolley_number / loading_time / lot_code / order_code
+  #   doffing_1_id / doffing_2_id
+  #   line_name_1 / winder_name_1 / line_name_2 / winder_name_2
+  #
+  # 注意：ERP 是"一车固定两个落筒"的扁平结构，
+  # 新系统的 doffing_ids 是任意长度的 JSON 数组。这里只映射前两个，
+  # 超出的落筒在 ERP 侧无处安放——这是对方表结构的限制，不是本系统的遗漏。
+  # 如果现场实际超过两落筒/车，需要先与 ERP 侧确认表结构。
+  # ---------------------------------------------------------------------------
+  trolleys:
+    target: trolleys
+    key: id
+    columns:
+      id:
+        from: id
+      trolley_number:
+        from: number
+      loading_time:
+        from: loading_time
+      lot_code:
+        from: lot.code
+      order_code:
+        from: lot.order_code
+      doffing_1_id:
+        from: doffings[0]
+      doffing_2_id:
+        from: doffings[1]
+      line_name_1:
+        from: doffing_records[0].line_name
+        fallback: line.name
+      winder_name_1:
+        from: doffing_records[0].winder_name
+      line_name_2:
+        from: doffing_records[1].line_name
+        fallback: line.name
+      winder_name_2:
+        from: doffing_records[1].winder_name
+
+  # ---------------------------------------------------------------------------
+  # 栈板 → fangsi.pallets
+  #
+  # ⚠️ fangsi 库里**没有 pallets 表**（只有 doffings / modules / trolleys）。
+  # 这段映射是为了将来对端建表后能直接启用而预留的，
+  # 当前 integration.yaml 的 tables 清单里也没有 pallets，
+  # 因此不会真的推送。对端建表并确认字段后，把 pallets 加进 tables 即可。
+  # ---------------------------------------------------------------------------
+  pallets:
+    target: pallets
+    key: id
+    columns:
+      id:
+        from: id
+      code:
+        from: code
+      lot_code:
+        from: lot.code
+      order_code:
+        from: lot.order_code
+      specification:
+        from: lot.specification
+      grade_code:
+        from: grade_code
+      layers:
+        from: layers
+      bobbin_count:
+        from: bobbin_count
+      total_weight:
+        from: total_weight
+      product_date:
+        from: product_date
+      created:
+        from: created_at

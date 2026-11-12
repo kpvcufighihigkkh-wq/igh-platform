@@ -1,0 +1,57 @@
+# IGH Edge 配置模板 — 分拣站 (Sorting Station)
+# 复制此文件为 edge.yaml 并修改实际参数
+
+edge:
+  id: "edge-sorting-01"        # 唯一节点标识
+  type: "sorting"               # 站点类型: sorting
+  data_dir: "./data"
+
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+  server:
+    url: "http://192.168.1.100:8099"
+    api_key: "sk-igh-change-in-production"
+    heartbeat_sec: 10
+    sync_interval_sec: 30
+
+  plc:
+    poll_interval_ms: 500       # 分拣站需要更快的轮询
+    devices:
+      # 分拣线 PLC — 通常使用 Modbus TCP
+      - code: "plc-sort-01"
+        model: "sorting_line"
+        host: "192.168.2.10"
+        port: 502
+        rack: 0
+        slot: 0
+        protocol: "modbus"
+        read_blocks:
+          - { db: 1, start: 0, size: 20, tag: "conveyor" }     # 传送带状态
+          - { db: 1, start: 100, size: 40, tag: "grade" }      # 分级结果
+
+      # 外观检测仪 PLC
+      # - code: "plc-vision-01"
+      #   model: "vision_inspector"
+      #   host: "192.168.2.11"
+      #   port: 502
+      #   protocol: "modbus"
+      #   read_blocks:
+      #     - { db: 1, start: 0, size: 30, tag: "inspection" }
+
+  printers:
+    # 分拣标签打印机
+    - code: "label-sorting-01"
+      host: "192.168.2.50"
+      port: 9100
+
+  ha:
+    mode: "standalone"
+    peer: ""
+    vip: ""
+    priority: 100
+
+  line:
+    code: "SORT01"
+    name: "Sorting Line 01"

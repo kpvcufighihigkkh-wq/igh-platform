@@ -1,0 +1,75 @@
+# IGH Edge 配置模板 — 包装站 (Packaging Station)
+# 复制此文件为 edge.yaml 并修改实际参数
+
+edge:
+  id: "edge-packaging-01"     # 唯一节点标识
+  type: "packaging"             # 站点类型: packaging
+  data_dir: "./data"
+
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+  server:
+    # 单地址：写 url；双机热备建议改写成 urls 列表（第一项放 VIP），
+    # 边端连接失败或对方返回 5xx 会自动切下一台，成功一次后粘滞在该地址。
+    url: "http://192.168.1.100:8099"
+    api_key: "sk-igh-change-in-production"
+    heartbeat_sec: 10
+    sync_interval_sec: 30
+
+  plc:
+    poll_interval_ms: 1000
+    devices:
+      # 打包机 13（旧库 palletizers.code=13，PLC 192.168.5.16 / DB 750）
+      - code: "palletizer-13"
+        model: "palletizer"
+        host: "192.168.5.16"
+        port: 102
+        rack: 0
+        slot: 1
+        protocol: "s7"
+        poll_groups:
+          # 字段名是契约，偏移与类型按现场 UDT 填。
+          # 控制器按名字取值，布局变了只改这里，不用改代码。
+          - name: "pallet"
+            interval_ms: 500
+            db: 750
+            start: 0
+            length: 64
+            points:
+              - { name: "Palletizer.PalletComplete", type: "int16",   offset: 0 }                          # PLC→PC 本垛堆完
+              - { name: "Palletizer.PalletAck",      type: "int16",   offset: 2,  direction: "write" }       # PC→PLC 已处理
+              - { name: "Palletizer.LotCode",        type: "string",  offset: 4,  length: 20 }                # 批号
+              - { name: "Palletizer.GradeCode",      type: "string",  offset: 24, length: 8 }                 # 等级
+              - { name: "Palletizer.BobbinCount",    type: "int16",   offset: 32 }                          # 锭数
+              - { name: "Palletizer.Layers",         type: "int16",   offset: 34 }                          # 层数
+              - { name: "Palletizer.TotalWeight",    type: "float32", offset: 36 }                          # 总重量 kg
+              - { name: "Palletizer.ProductDate",    type: "string",  offset: 40, length: 10 }                # 生产日期（可选）
+
+  printers:
+    # 栈板标签打印机（Zebra，ZPL over TCP 9100）
+    - code: "label-pallet-01"
+      host: "192.168.3.50"
+      port: 9100
+
+  # 打包机绑定：把 PLC 设备与打包机号 / 厂编码绑起来。
+  #   number      → 栈板编码里的打包机号段（旧库 palletizers.code）
+  #   plant_code  → 栈板编码前缀（旧库 settings.palletPlantCode）
+  #   label_printer → 打标签用哪台打印机（留空则不打印）
+  palletizers:
+    - code: "打包机13"
+      device: "palletizer-13"
+      number: 13
+      plant_code: "12"
+      label_printer: "label-pallet-01"
+
+  ha:
+    mode: "standalone"
+    peer: ""
+    vip: ""
+    priority: 100
+
+  line:
+    code: "PACK01"
+    name: "Packaging Line 01"

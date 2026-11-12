@@ -1,0 +1,31 @@
+model_name: "barmag_winder"
+description: "巴马格卷绕机 S7通信模型"
+protocol: "s7"
+
+connection:
+  port: 102
+  rack: 0
+  slot: 1
+  timeout_ms: 3000
+  reconnect_interval_sec: 3
+  max_reconnect_attempts: 0
+
+poll_groups:
+  - name: "doff_signal"
+    interval_ms: 200
+    points:
+      - {name: "called_from_plc", db: 560, offset: 0, bit: 0, type: "bool"}
+      - {name: "answer_from_pc", db: 560, offset: 0, bit: 1, type: "bool", direction: "write"}
+      - {name: "doff_no", db: 560, offset: 2, type: "int16"}
+      - {name: "bobbin_count", db: 560, offset: 4, type: "int16"}
+
+  - name: "lot_info"
+    interval_ms: 1000
+    points:
+      - {name: "lot_code", db: 560, offset: 10, type: "string", length: 20}
+      - {name: "yarn_type", db: 560, offset: 30, type: "string", length: 12}
+
+handshake:
+  type: "request-answer-confirm"
+  request_point: "called_from_plc"
+  answer_point: "answer_from_pc"

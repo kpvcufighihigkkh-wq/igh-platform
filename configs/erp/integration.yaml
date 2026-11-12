@@ -1,8 +1,21 @@
 mode: "disabled"
 
+# push_only：直连 ERP 数据库写入。
+#
+# 目标库是 MySQL 5.7（不是 MSSQL）——依据原项目服务端配置与 fangsi.sql 的导出头：
+#   host 10.30.30.144 / port 3306 / database fangsi
+# 早期这里写成 mssql:// 与事实不符，已更正。
+#
+# 凭据用 ${ENV} 引用，不要写明文：配置会进版本库、也会被打进日志排查。
+# 部署时设置 IGH_ERP_DB_USER / IGH_ERP_DB_PASSWORD 两个环境变量。
 push_only:
-  target: "mssql://10.30.30.144/fangsi"
-  tables: [doffings, trolleys, pallets]
+  target: "mysql://10.30.30.144:3306/fangsi"
+  user: "${IGH_ERP_DB_USER}"
+  password: "${IGH_ERP_DB_PASSWORD}"
+  # 只推 ERP 侧确实存在的表。
+  # fangsi 库只有 doffings / modules / trolleys 三张表，
+  # 早期配置里的 pallets 在对方库里不存在，推过去必然失败，已去掉。
+  tables: [doffings, trolleys]
   trigger: "on_event"
   retry: 3
   timeout_sec: 10
@@ -10,7 +23,7 @@ push_only:
 bidirectional:
   api_endpoint: "http://10.30.31.70:8080/api"
   push:
-    tables: [doffings, trolleys, pallets]
+    tables: [doffings, trolleys]
     trigger: "on_event"
   pull:
     resources: [orders, specifications]

@@ -1,0 +1,78 @@
+# IGH 高可用集群拓扑配置
+#
+# 拓扑：2 台业务服务器 + 1 台见证节点（复用边端 PC，只跑 etcd）
+#   - etcd 需要 3 个成员才能容忍任意 1 个故障（Raft 多数派 = 2/3）
+#   - 没有 VIP：客户端（center / edge）直接配置两个服务器地址
+#   - 数据库：PostgreSQL 同步复制，synchronous_commit = remote_apply（零丢失）
+#
+# 使用前必须改：
+#   - 全部 IP 地址
+#   - cluster_token（换成一个随机字符串，三台机器必须一致）
+#
+# 校验：hactl -config configs/ha/cluster.yaml -validate
+
+cluster_token: "igh-hx-jj-2026"
+
+# 选主租约
+#   lease_ttl_sec      : 租约存活时间。etcd 租约到期后 leader 键自动消失
+#   renew_interval_sec : 续约间隔，必须是 TTL 的 1/5 左右
+#   恢复时间预算 ≈ lease_ttl_sec + promote + 客户端重试
+lease_ttl_sec: 5
+renew_interval_sec: 1
+leader_key: "/igh/leader"
+
+# etcd 成员（恰好 3 个）
+nodes:
+  - id: "server-a"
+    addr: "http://192.168.10.1:2379"      # etcd 客户端端口
+    peer: "http://192.168.10.1:2380"      # etcd 成员间端口
+    role: "server"
+  - id: "server-b"
+    addr: "http://192.168.10.2:2379"
+    peer: "http://192.168.10.2:2380"
+    role: "server"
+  - id: "witness"
+    addr: "http://192.168.10.31:2379"     # 见证节点：某台边端 PC 的服务网 IP
+    peer: "http://192.168.10.31:2380"
+    role: "witness"
+
+# 数据库角色候选（两台服务器）
+database:
+  primary_candidate: "192.168.10.1"       # 初始主库
+  standby_candidate: "192.168.10.2"       # 初始备库
+  port: 5432
+  database: "igh_platform"
+  user: "igh"
+  # 密码不写在这里，用环境变量 IGH_DB_PASSWORD
+  replication_user: "replicator"
+  # PostgreSQL 数据目录（Windows 路径）
+  data_dir: "D:\\igh\\pgsql\\data"
+  # pg_ctl 可执行文件路径
+  pg_ctl: "C:\\Program Files\\PostgreSQL\\16\\bin\\pg_ctl.exe"
+
+# 客户端（center / edge）连接的两个地址
+# 注意：不使用 VIP。center 启动时探测 pg_is_in_recovery() 决定连哪台。
+endpoints:
+  - "http://192.168.10.1:8099"
+  - "http://192.168.10.2:8099"
+
+# 故障切换行为
+failover:
+  # 备机不可达时，主库如何处理：
+  #   block   : 停止写入并告警，由人工决定（推荐：零丢失）
+  #   degrade : 超时后降级为异步（会产生分叉风险，仅在有见证节点且明确接受时启用）
+  on_standby_unreachable: "block"
+  # 主库不可达多久后，备库尝试提升（秒）
+  promote_after_sec: 3
+  # 提升前必须确认已追平
+  require_lsn_caught_up: true
+  # 旧主库恢复后是否自动回退为备库（需要 pg_rewind）
+  auto_rejoin_as_standby: true
+
+# 时间预算（用于校验是否满足 10 秒目标）
+budget:
+  lease_expiry_sec: 5
+  lsn_check_sec: 1
+  promote_sec: 2
+  center_reconnect_sec: 1
+  edge_retry_sec: 1

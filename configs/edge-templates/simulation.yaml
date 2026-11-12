@@ -1,0 +1,63 @@
+# ===================================================================
+# IGH Edge Node - Simulation Mode
+# 仿真模式配置，无需真实 PLC 硬件即可运行完整生产流程
+# ===================================================================
+
+edge:
+  id: "edge-sim-01"
+  type: "winding"           # winding / sorting / packaging / warehouse
+  data_dir: "./data"
+
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+  server:
+    # 单地址：写 url；双机热备建议改写成 urls 列表（第一项放 VIP），
+    # 边端连接失败或对方返回 5xx 会自动切下一台，成功一次后粘滞在该地址。
+    url: "http://127.0.0.1:8099"
+    api_key: "sk-igh-dev-key-change-in-production"
+    heartbeat_sec: 10
+    sync_interval_sec: 30
+
+  plc:
+    poll_interval_ms: 2000    # 仿真模式建议 2 秒，避免事件过于频繁
+    devices:
+      # 仿真卷绕机 1
+      - code: "sim-winder-01"
+        model: "barmag_winder"
+        host: "127.0.0.1"      # 仿真模式下 host/port 不会实际连接
+        port: 102
+        rack: 0
+        slot: 1
+        protocol: "simulation"  # <-- 关键：使用 simulation 协议
+        read_blocks:
+          - { db: 1, start: 0, size: 100, tag: "status" }       # 机器状态
+          - { db: 2, start: 0, size: 200, tag: "production" }   # 生产数据
+
+      # 仿真卷绕机 2 (可选，多设备测试)
+      - code: "sim-winder-02"
+        model: "barmag_winder"
+        host: "127.0.0.1"
+        port: 102
+        rack: 0
+        slot: 2
+        protocol: "simulation"
+        read_blocks:
+          - { db: 1, start: 0, size: 100, tag: "status" }
+          - { db: 2, start: 0, size: 200, tag: "production" }
+
+  printers:
+    - code: "sim-printer-01"
+      host: "127.0.0.1"
+      port: 9100
+
+  ha:
+    mode: "standalone"
+    peer: ""
+    vip: ""
+    priority: 100
+
+  line:
+    code: "SIM-L01"
+    name: "Simulation Line 01"

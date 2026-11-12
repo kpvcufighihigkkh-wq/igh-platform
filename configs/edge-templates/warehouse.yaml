@@ -1,0 +1,78 @@
+# IGH Edge 配置模板 — 仓库站 (Warehouse Station)
+# 复制此文件为 edge.yaml 并修改实际参数
+
+edge:
+  id: "edge-warehouse-01"     # 唯一节点标识
+  type: "warehouse"             # 站点类型: warehouse
+  data_dir: "./data"
+
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+  server:
+    # 单地址：写 url；双机热备建议改写成 urls 列表（第一项放 VIP），
+    # 边端连接失败或对方返回 5xx 会自动切下一台，成功一次后粘滞在该地址。
+    url: "http://192.168.1.100:8099"
+    api_key: "sk-igh-change-in-production"
+    heartbeat_sec: 10
+    sync_interval_sec: 60       # 仓库数据变化频率低，同步间隔可以加长
+
+  plc:
+    poll_interval_ms: 2000      # 仓库设备轮询频率较低
+    devices:
+      # 仓库 PLC（旧库 warehouses.settings：192.168.5.43，仓库1 用 DB 901）
+      - code: "warehouse-1"
+        model: "warehouse_controller"
+        host: "192.168.5.43"
+        port: 102
+        rack: 0
+        slot: 1
+        protocol: "s7"
+        poll_groups:
+          # 字段名是契约，偏移与类型按现场 UDT 填。
+          # 控制器按名字取值，布局变了只改这里，不用改代码。
+          - name: "slot_event"
+            interval_ms: 1000
+            db: 901
+            start: 0
+            length: 64
+            points:
+              - { name: "Warehouse.SlotChange",   type: "int16",  offset: 0 }                     # PLC→PC 有库位变化
+              - { name: "Warehouse.SlotAck",      type: "int16",  offset: 2, direction: "write" }  # PC→PLC 已处理
+              - { name: "Warehouse.SlotAction",   type: "int16",  offset: 4 }                     # 1=入库 2=出库
+              - { name: "Warehouse.SlotRow",      type: "int16",  offset: 6 }                     # 行
+              - { name: "Warehouse.SlotCol",      type: "int16",  offset: 8 }                     # 列
+              - { name: "Warehouse.SlotLayer",    type: "int16",  offset: 10 }                    # 层
+              - { name: "Warehouse.OccupantType", type: "string", offset: 12, length: 16 }        # pallet / trolley …
+              - { name: "Warehouse.OccupantID",   type: "int32",  offset: 28 }                    # 占用物 id
+              - { name: "Warehouse.LotCode",      type: "string", offset: 32, length: 20 }        # 批号（可选）
+
+  printers:
+    # 仓库标签打印机
+    - code: "label-wh-01"
+      host: "192.168.4.50"
+      port: 9100
+
+  # 仓库绑定：把 PLC 设备与仓库编码绑起来。
+  #   code            → 仅用于日志与界面显示
+  #   device          → 对应上面 plc.devices 里的设备编码
+  #   warehouse_code  → 上报中心时用的仓库编码（warehouses.code），留空则用 code
+  #
+  # 旧库里一个 PLC（192.168.5.43）挂了 4 个仓库（DB 901~904），
+  # 共享 DB 560 的 plcPc 交互块（偏移 0/18/36/54）。
+  # 多仓库共用一个 PLC 时，为每个仓库各配一组 poll_groups + 一条绑定。
+  warehouses:
+    - code: "中间库1"
+      device: "warehouse-1"
+      warehouse_code: "WH-A"
+
+  ha:
+    mode: "standalone"
+    peer: ""
+    vip: ""
+    priority: 100
+
+  line:
+    code: "WH01"
+    name: "Warehouse 01"

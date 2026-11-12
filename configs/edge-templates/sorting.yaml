@@ -1,0 +1,77 @@
+# IGH Edge 配置模板 — 分拣站 (Sorting Station)
+# 复制此文件为 edge.yaml 并修改实际参数
+
+edge:
+  id: "edge-sorting-01"        # 唯一节点标识
+  type: "sorting"               # 站点类型: sorting
+  data_dir: "./data"
+
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+  server:
+    # 单地址：写 url；双机热备建议改写成 urls 列表（第一项放 VIP），
+    # 边端连接失败或对方返回 5xx 会自动切下一台，成功一次后粘滞在该地址。
+    url: "http://192.168.1.100:8099"
+    api_key: "sk-igh-change-in-production"
+    heartbeat_sec: 10
+    sync_interval_sec: 30
+
+  plc:
+    poll_interval_ms: 500       # 分拣站需要更快的轮询
+    devices:
+      # 分拣线 PLC — 通常使用 Modbus TCP
+      - code: "plc-sort-01"
+        model: "sorting_line"
+        host: "192.168.2.10"
+        port: 502
+        rack: 0
+        slot: 0
+        protocol: "modbus"
+        read_blocks:
+          - { db: 1, start: 0, size: 20, tag: "conveyor" }     # 传送带状态
+          - { db: 1, start: 100, size: 40, tag: "grade" }      # 分级结果
+
+      # 外观检测仪 PLC
+      # - code: "plc-vision-01"
+      #   model: "vision_inspector"
+      #   host: "192.168.2.11"
+      #   port: 502
+      #   protocol: "modbus"
+      #   read_blocks:
+      #     - { db: 1, start: 0, size: 30, tag: "inspection" }
+
+  printers:
+    # 分拣标签打印机（Zebra 等文本协议，按编码调用）
+    - code: "label-sorting-01"
+      host: "192.168.2.50"
+      port: 9100
+
+    # Macsa 打标机：按 IP 直配，用 device + head 指定它服务哪个设备的第几号头。
+    # 头号必须与 PLC 点表里的 Start[i] / Done[i] 下标一致（1 起）。
+    # 一台设备配几台就在下面列几条，控制器按 (device, head) 查找。
+    #
+    # - code: "sort07"                       # 编码，任意唯一字符串，用于日志与连接复用
+    #   device: "sorting-L04"                # 对应 PLC 设备的 code
+    #   head: 7                              # 第 7 号打标头
+    #   host: "192.168.4.84"                 # 打标机 IP（旧库外检1 第 7 台）
+    #   port: 3490                           # Macsa 默认端口
+    #   label: "mae3"                        # 打标机内的模板名
+    #
+    # - code: "sort08"
+    #   device: "sorting-L04"
+    #   head: 8
+    #   host: "192.168.4.85"
+    #   port: 3490
+    #   label: "mae3"
+
+  ha:
+    mode: "standalone"
+    peer: ""
+    vip: ""
+    priority: 100
+
+  line:
+    code: "SORT01"
+    name: "Sorting Line 01"
