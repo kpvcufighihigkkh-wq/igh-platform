@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IGH 边端工位交互原型 v1</title>
+<!--
+  ===================================================================
+  边端工位交互原型（静态，零依赖，双击即可打开）
+
+  这份文件不连任何后端，所有数据都是脚本里造出来的假数据，
+  目的只有一个：让现场和产品在写代码之前，先把"工人戴手套怎么按"
+  这件事看清楚。
+
+  设计约束（来自现场）：
+    - 工业触摸屏，工人戴沾油的手套 → 按钮 ≥64px，说明性文字 ≥18px
+    - 不允许 hover 才出现的操作（触摸屏没有 hover）
+    - 不允许需要滚动的长表单（一屏之内要能按完）
+    - 断网必须可用 → 顶部常驻网络状态条
+
+  对应规格说明见同目录 edge-station-interaction.md
+  ===================================================================
+-->
+<style>
+  /* ---------- 基础：深色、无渐变、高对比 ---------- */
+  :root {
+    --bg:        #0a0e13;
+    --panel:     #141b24;
+    --panel-2:   #1c2530;
+    --border:    #2b3746;
+    --border-hi: #3d4d61;
+    --text:      #e6edf3;
+    --muted:     #8b98a8;
+    --accent:    #2f81f7;
+    --ok:        #2ecc71;
+    --warn:      #f0b429;
+    --bad:       #ef4444;
+    --btn-h:     72px;
+    --btn-h-xl:  112px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
+    /* 触摸屏禁掉文字选中，避免长按弹出选择菜单挡住操作 */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .mono { font-family: "Consolas", "Courier New", monospace; }
+  .num  { font-variant-numeric: tabular-nums; }
+
+  /* ---------- 顶部：工位切换 + 网络状态 ---------- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 2px solid var(--border);
+  }
+
+  .brand {
+    font-size: 18px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .brand small {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .station-switch {
+    display: flex;
+    gap: 8px;
+    margin-left: 8px;
+  }
+  .station-switch button {
+    min-height: 60px;
+    min-width: 132px;
+    padding: 0 22px;
+    font-size: 21px;
+    font-weight: 700;
+    color: var(--muted);
+    background: var(--panel-2);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .station-switch button.active {
+    color: #fff;
+    background: var(--accent);
+    border-color: #5aa6ff;
+  }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  /* 网络状态灯：三态，常驻，不可点 */
+  .net-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    padding: 0 18px;
+    border-radius: 6px;
+    font-size: 20px;
+    font-weight: 700;
+    border: 2px solid;
+  }
+  .net-badge .dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .net-badge.online   { color: var(--ok);   border-color: var(--ok);   background: rgba(46,204,113,.10); }
+  .net-badge.offline  { color: var(--bad);  border-color: var(--bad);  background: rgba(239,68,68,.12); }
+  .net-badge.syncing  { color: var(--warn); border-color: var(--warn); background: rgba(240,180,41,.12); }
+
+  .clock {
+    font-family: "Consolas", monospace;
+    font-size: 22px;
+    color: var(--muted);
+    min-width: 118px;
+    text-align: right;
+  }
+
+  /* 原型专用：模拟网络状态的开发工具条，真实页面不会有 */
+  .dev-toggle {
+    min-height: 56px;
+    padding: 0 16px;
+    font-size: 16px;
+    color: var(--muted);
+    background: transparent;
+    border: 2px dashed var(--border-hi);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .dev-toggle:hover { color: var(--text); }
+
+  /* ---------- 离线横幅 ---------- */
+  .offline-bar {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--bad);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .offline-bar.show { display: flex; }
+  .offline-bar.syncing { background: var(--warn); color: #1a1200; }
+  .offline-bar .hint { font-size: 17px; font-weight: 400; opacity: .92; }
+
+  /* ---------- 主区域 ---------- */
+  main { padding: 14px 16px 16px; }
+
+  .pane { display: none; }
+  .pane.active { display: block; }
+
+  /* 断网时整块工作区降饱和，一眼能看出"现在不是正常状态" */
+  body.is-offline .pane.active { filter: grayscale(.75) brightness(.82); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 400px;
+    gap: 14px;
+  }
+
+  .col-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .col-side { display: flex; flex-direction: column; gap: 14px; }
+
+  .panel {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .panel-head h2 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 700;
+  }
+  .panel-head .src {
+    font-size: 15px;
+    color: var(--muted);
+  }
+
+  /* ---------- 数字块 ---------- */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .stat {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-left: 6px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px 18px;
+  }
+  .stat.ok   { border-left-color: var(--ok); }
+  .stat.warn { border-left-color: var(--warn); }
+  .stat-label { font-size: 17px; color: var(--muted); }
+  .stat-value {
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 1.18;
+    font-variant-numeric: tabular-nums;
+    word-break: break-all;
+  }
+  .stat-value.mid { font-size: 38px; }
+  .stat-value .unit {
+    font-size: 22px;
+    color: var(--muted);
+    margin-left: 6px;
+    font-weight: 400;
+  }
+  .stat-sub { font-size: 16px; color: var(--muted); }
+
+  /* 数值跳动时闪一下底色，让人看出"这是活的数据" */
+  .flash { animation: flash .5s ease-out; }
+  @keyframes flash {
+    0%   { background: rgba(47,129,247,.55); }
+    100% { background: transparent; }
+  }
+
+  /* ---------- 按钮：所有可点元素最小 64px ---------- */
+  .action-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    min-height: var(--btn-h);
+    padding: 0 28px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 2px solid var(--border-hi);
+    border-radius: 8px;
+    cursor: pointer;
+    /* 手套按压反馈：按下瞬间变亮 + 下沉，不依赖 hover */
+    transition: none;
+  }
+  .btn:active { transform: translateY(2px); filter: brightness(1.35); }
+  .btn-xl { min-height: var(--btn-h-xl); font-size: 26px; flex: 1; min-width: 240px; }
+  .btn-primary { background: #1e6b3f; border-color: #2ecc71; color: #fff; }
+  .btn-info    { background: #1b4a7a; border-color: #2f81f7; color: #fff; }
+  .btn-warn    { background: #6b5106; border-color: var(--warn); color: #fff; }
+  .btn-danger  { background: #7a1f1f; border-color: var(--bad); color: #fff; }
+  .btn-ghost   { background: transparent; }
+
+  /* 需要中心接口的动作：断网时置灰并解释原因，而不是点了没反应 */
+  body.is-offline .need-net {
+    opacity: .35;
+    pointer-events: none;
+  }
+
+  /* ---------- 锭位盘（落筒） ---------- */
+  .spindle-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .spindle {
+    background: var(--panel-2);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 148px;
+  }
+  .spindle.full { border-color: var(--ok); }
+  .spindle.doffing { border-color: var(--warn); }
+  .spindle-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 19px;
+    font-weight: 700;
+  }
+  .spindle-len {
+    font-size: 34px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin: 6px 0 2px;
+  }
+  .spindle-len .u { font-size: 17px; color: var(--muted); font-weight: 400; }
+  .spindle-state { font-size: 16px; color: var(--muted); }
+  .spindle.full .spindle-state { color: var(--ok); }
+  .spindle.doffing .spindle-state { color: var(--warn); }
+
+  .bar {
+    height: 12px;
+    background: #0c1219;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  .bar > i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+  }
+  .spindle.full .bar > i { background: var(--ok); }
+
+  /* ---------- 状态点 ---------- */
+  .dot-sm {
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+  }
+  .dot-ok   { background: var(--ok); }
+  .dot-warn { background: var(--warn); }
+  .dot-bad  { background: var(--bad); }
+  .dot-off  { background: #4a5567; }
+
+  /* ---------- 右侧信息卡 ---------- */
+  .kv { display: flex; justify-content: space-between; padding: 7px 0; font-size: 18px; }
+  .kv + .kv { border-top: 1px solid rgba(255,255,255,.06); }
+  .kv .k { color: var(--muted); }
+  .kv .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ---------- 记录列表（局部滚动，页面本身不滚） ---------- */
+  .rec-list {
+    max-height: 250px;
+    overflow-y: auto;
+  }
+  .rec {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 17px;
+  }
+  .rec .r1 { font-weight: 700; }
+  .rec .r2 { color: var(--muted); font-size: 15px; }
+  .rec .tag {
+    font-size: 15px;
+    padding: 2px 10px;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+    align-self: center;
+    white-space: nowrap;
+  }
+  .tag-ok   { color: var(--ok); }
+  .tag-warn { color: var(--warn); }
+  .tag-bad  { color: var(--bad); }
+
+  /* ---------- 扫码输入条 ---------- */
+  .scan-bar {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .scan-input {
+    flex: 1;
+    min-height: 88px;
+    padding: 0 20px;
+    font-size: 28px;
+    font-family: "Consolas", monospace;
+    color: var(--text);
+    background: #0c1219;
+    border: 3px solid var(--accent);
+    border-radius: 8px;
+    letter-spacing: 1px;
+  }
+  .scan-input::placeholder { color: #55637a; font-size: 20px; letter-spacing: 0; }
+
+  /* ---------- 等级按钮 ---------- */
+  .grade-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .grade-btn {
+    min-height: 104px;
+    font-size: 30px;
+    font-weight: 700;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 2px solid var(--border-hi);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .grade-btn small { display: block; font-size: 16px; font-weight: 400; color: var(--muted); }
+  .grade-btn:active { filter: brightness(1.4); transform: translateY(2px); }
+  .grade-btn.sel { border-color: var(--accent); background: #1b3a63; }
+
+  .defect-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .defect-btn {
+    min-height: 64px;
+    padding: 0 20px;
+    font-size: 19px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 2px solid var(--border-hi);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .defect-btn.sel { background: #6b3f06; border-color: var(--warn); }
+
+  /* ---------- 栈板 / 库位网格 ---------- */
+  .cell-grid {
+    display: grid;
+    gap: 8px;
+  }
+  .cell {
+    min-height: 62px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--muted);
+    background: #0e151d;
+    border: 2px solid var(--border);
+    border-radius: 5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .cell.occupied { background: #12351f; border-color: var(--ok); color: var(--ok); }
+  .cell.reserved { background: #3a2c05; border-color: var(--warn); color: var(--warn); }
+  .cell.current  { background: var(--accent); border-color: #7fbaff; color: #fff; }
+  .cell.changed  { animation: cellflash .8s ease-out; }
+  @keyframes cellflash {
+    0%   { background: #2f81f7; border-color: #9ccbff; color: #fff; }
+    100% { }
+  }
+
+  /* ---------- 表格（极简，不用复杂组件） ---------- */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 17px; }
+  .tbl th {
+    text-align: left;
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 15px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tbl td {
+    padding: 11px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    font-variant-numeric: tabular-nums;
+  }
+  .tbl tr:last-child td { border-bottom: none; }
+
+  /* ---------- toast ---------- */
+  .toast-wrap {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 99;
+    pointer-events: none;
+  }
+  .toast {
+    min-width: 380px;
+    max-width: 760px;
+    padding: 18px 26px;
+    font-size: 21px;
+    font-weight: 700;
+    color: #fff;
+    background: #1f2937;
+    border: 2px solid var(--border-hi);
+    border-left: 8px solid var(--accent);
+    border-radius: 8px;
+  }
+  .toast.ok   { border-left-color: var(--ok); }
+  .toast.warn { border-left-color: var(--warn); }
+  .toast.bad  { border-left-color: var(--bad); }
+
+  /* ---------- 页脚说明（原型专用） ---------- */
+  .proto-note {
+    margin-top: 14px;
+    padding: 10px 16px;
+    font-size: 15px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+  .proto-note b { color: var(--text); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ==================== 顶部：工位切换 + 网络状态 ==================== -->
+<header class="topbar">
+  <div class="brand">
+    IGH 边端工位
+    <small>原型 · 不连后端</small>
+  </div>
+
+  <nav class="station-switch" id="stationSwitch">
+    <button data-station="winding" class="active">落筒</button>
+    <button data-station="sorting">外检</button>
+    <button data-station="packaging">包装</button>
+    <button data-station="warehouse">仓库</button>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="net-badge online" id="netBadge">
+      <span class="dot"></span><span id="netText">在线</span>
+    </div>
+    <div class="clock num" id="clock">--:--:--</div>
+    <button class="dev-toggle" id="netToggle">原型：模拟断网</button>
+  </div>
+</header>
+
+<!-- 断网/同步横条：常驻页面顶部，不是弹窗；工人不必关掉它才能继续干活 -->
+<div class="offline-bar" id="offlineBar">
+  <span id="offlineText"></span>
+  <span class="hint" id="offlineHint"></span>
+</div>
+
+<main>
+
+  <!-- ==================================================================
+       工位 1：落筒 winding
+       ================================================================== -->
+  <section class="pane active" id="pane-winding">
+    <div class="layout">
+      <div class="col-main">
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-label">当前批号</div>
+            <div class="stat-value mid mono" id="w-lot">L01-20261111-A</div>
+            <div class="stat-sub">1.67dtex / 38mm · 计划 8 锭/落</div>
+          </div>
+          <div class="stat ok">
+            <div class="stat-label">本次落筒进度</div>
+            <div class="stat-value num">
+              <span id="w-doff-n">6</span><span class="unit">/ 8 锭</span>
+            </div>
+            <div class="stat-sub">落筒号 <span class="mono" id="w-doff-no">D-0182</span></div>
+          </div>
+          <div class="stat warn">
+            <div class="stat-label">今日产量</div>
+            <div class="stat-value num">
+              <span id="w-today-doff">128</span><span class="unit">落</span>
+            </div>
+            <div class="stat-sub">丝饼 <span id="w-today-bobbin">1024</span> 锭 · 料车 <span id="w-trolley">14</span> 辆</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>锭位实时状态</h2>
+            <span class="src">来源：PLC 点表轮询（2s）· 数字在动说明采集正常</span>
+          </div>
+          <div class="spindle-grid" id="w-spindles"><!-- JS 渲染 --></div>
+        </div>
+
+        <!-- 主操作：两个超大按钮放在拇指最舒服的中间偏下位置 -->
+        <div class="action-row">
+          <button class="btn btn-primary btn-xl" id="wDoffBtn">落筒完成确认</button>
+          <button class="btn btn-info btn-xl" id="wTrolleyBtn">料车装载</button>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-ghost" id="wReprintBtn">标签补打</button>
+          <button class="btn btn-warn need-net" id="wOverrideBtn">手动干预（需联网审核）</button>
+        </div>
+      </div>
+
+      <aside class="col-side">
+        <div class="panel">
+          <div class="panel-head"><h2>设备状态</h2></div>
+          <div class="kv"><span class="k"><span class="dot-sm dot-ok"></span>卷绕机 W1</span><span class="v">在线</span></div>
+          <div class="kv"><span class="k"><span class="dot-sm dot-ok"></span>卷绕机 W2</span><span class="v">在线</span></div>
+          <div class="kv"><span class="k"><span class="dot-sm dot-warn"></span>卷绕机 W3</span><span class="v">重连中</span></div>
+          <div class="kv"><span class="k"><span class="dot-sm dot-ok"></span>标签打印机</span><span class="v">在线</span></div>
+        </div>
+
+        <!-- 打印机：只选模板 + 选打印机，绝不让人手填 ZPL 或 IP -->
+        <div class="panel">
+          <div class="panel-head"><h2>标签打印</h2><span class="src">模板来自配置目录</span></div>
+          <div class="kv"><span class="k">打印机</span><span class="v">Zebra ZT411 · 9100</span></div>
+          <div class="kv"><span class="k">模板</span><span class="v">bobbin.zpl</span></div>
+          <div class="kv"><span class="k">待打印</span><span class="v" id="w-print-queue">0</span></div>
+          <div class="action-row" style="margin-top:12px">
+            <button class="btn" style="flex:1" id="wPrintTest">测试打印</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>最近落筒</h2><span class="src">本地库</span></div>
+          <div class="rec-list" id="w-recent"><!-- JS 渲染 --></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       工位 2：外检 / 分选 sorting
+       ================================================================== -->
+  <section class="pane" id="pane-sorting">
+    <div class="layout">
+      <div class="col-main">
+
+        <!-- 扫码是唯一输入源：工人不手打编码 -->
+        <div class="panel">
+          <div class="panel-head">
+            <h2>扫描丝饼条码</h2>
+            <span class="src">扫码枪输入后自动提交，无需点确认</span>
+          </div>
+          <div class="scan-bar">
+            <input class="scan-input" id="s-scan" placeholder="请扫描丝饼条码…（演示：输入任意内容后回车）" autocomplete="off">
+            <button class="btn" id="s-clear" style="min-width:130px">清空</button>
+          </div>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-label">当前丝饼</div>
+            <div class="stat-value mid mono" id="s-bobbin">W3-0245</div>
+            <div class="stat-sub">批号 L01-20261111-A · 落筒 D-0182</div>
+          </div>
+          <div class="stat ok">
+            <div class="stat-label">称重</div>
+            <div class="stat-value num"><span id="s-weight">5.412</span><span class="unit">kg</span></div>
+            <div class="stat-sub">重量等级 <span id="s-weight-grade">AA</span>（规则自动判定）</div>
+          </div>
+          <div class="stat warn">
+            <div class="stat-label">待检队列</div>
+            <div class="stat-value num"><span id="s-queue">18</span><span class="unit">锭</span></div>
+            <div class="stat-sub">今日已检 <span id="s-done">642</span> 锭</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>选择等级</h2>
+            <span class="src">点一下即提交，不需要二次确认</span>
+          </div>
+          <div class="grade-grid" id="s-grades">
+            <button class="grade-btn" data-grade="AAA">AAA<small>特等品</small></button>
+            <button class="grade-btn" data-grade="AA">AA<small>优等品</small></button>
+            <button class="grade-btn" data-grade="AA1">AA1<small>一等品</small></button>
+            <button class="grade-btn" data-grade="AA2">AA2<small>二等品</small></button>
+            <button class="grade-btn" data-grade="A1">A1<small>合格品</small></button>
+            <button class="grade-btn" data-grade="A">A<small>次品</small></button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>缺陷代码</h2><span class="src">可多选，选完再点等级</span></div>
+          <div class="defect-row" id="s-defects">
+            <button class="defect-btn" data-defect="MAO">毛丝</button>
+            <button class="defect-btn" data-defect="YOU">油污</button>
+            <button class="defect-btn" data-defect="CXBL">成型不良</button>
+            <button class="defect-btn" data-defect="ZLPC">重量偏差</button>
+            <button class="defect-btn" data-defect="DUAN">断头</button>
+            <button class="defect-btn" data-defect="QITA">其他</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="col-side">
+        <div class="panel">
+          <div class="panel-head"><h2>打标握手</h2><span class="src">PLC ↔ PC</span></div>
+          <div class="kv"><span class="k">Start[3]</span><span class="v" id="s-start">0</span></div>
+          <div class="kv"><span class="k">Step</span><span class="v" id="s-step">0</span></div>
+          <div class="kv"><span class="k">Done[3]</span><span class="v" id="s-done-signal">0</span></div>
+          <div class="kv"><span class="k">打标机</span><span class="v">L04-1 头1 · 在线</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>等级分布（本班）</h2></div>
+          <div class="kv"><span class="k">AAA</span><span class="v" id="d-AAA">22</span></div>
+          <div class="kv"><span class="k">AA</span><span class="v" id="d-AA">41</span></div>
+          <div class="kv"><span class="k">AA1</span><span class="v" id="d-AA1">36</span></div>
+          <div class="kv"><span class="k">AA2</span><span class="v" id="d-AA2">12</span></div>
+          <div class="kv"><span class="k">A1</span><span class="v" id="d-A1">8</span></div>
+          <div class="kv"><span class="k">A</span><span class="v" id="d-A">3</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>最近分拣</h2></div>
+          <div class="rec-list" id="s-recent"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       工位 3：包装 packaging
+       ================================================================== -->
+  <section class="pane" id="pane-packaging">
+    <div class="layout">
+      <div class="col-main">
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-label">当前包装订单</div>
+            <div class="stat-value mid mono" id="p-order">PO-20261111-07</div>
+            <div class="stat-sub">批次 L01-20261111-A · 等级 AA · 48 锭/垛</div>
+          </div>
+          <div class="stat ok">
+            <div class="stat-label">已完成 / 目标</div>
+            <div class="stat-value num"><span id="p-packed">144</span><span class="unit">/ 192 锭</span></div>
+            <div class="stat-sub">已出垛 <span id="p-pallets">3</span> 垛</div>
+          </div>
+          <div class="stat warn">
+            <div class="stat-label">本垛上料</div>
+            <div class="stat-value num"><span id="p-intake">24</span><span class="unit">/ 48 锭</span></div>
+            <div class="stat-sub">打包机 <span class="mono">PKG-01</span> 运行中</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>扫码上料</h2>
+            <span class="src">逐锭扫码，扫满一垛后打包机自动开始堆垛</span>
+          </div>
+          <div class="scan-bar">
+            <input class="scan-input" id="p-scan" placeholder="请扫描丝饼条码…（演示：输入任意内容后回车）" autocomplete="off">
+            <button class="btn" id="p-replace" style="min-width:170px">换垛清空</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>栈板装载位置</h2>
+            <span class="src">来源：打包机 PLC · 高亮格是当前装载位</span>
+          </div>
+          <!-- 6 列 × 4 层 = 24 位，每位 2 锭 -->
+          <div class="cell-grid" id="p-pallet" style="grid-template-columns: repeat(6, minmax(0,1fr));"></div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-primary btn-xl" id="pCompleteBtn">完成上垛</button>
+          <button class="btn btn-info btn-xl" id="pPrintBtn">补打栈板标签</button>
+        </div>
+      </div>
+
+      <aside class="col-side">
+        <div class="panel">
+          <div class="panel-head"><h2>打包机状态</h2><span class="src">PLC 握手</span></div>
+          <div class="kv"><span class="k"><span class="dot-sm dot-ok"></span>PalletComplete</span><span class="v" id="p-complete">0</span></div>
+          <div class="kv"><span class="k">PalletAck</span><span class="v" id="p-ack">0</span></div>
+          <div class="kv"><span class="k">当前层</span><span class="v" id="p-layer">2 / 4</span></div>
+          <div class="kv"><span class="k">预计剩余</span><span class="v" id="p-eta">4 分 20 秒</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>栈板标签</h2></div>
+          <div class="kv"><span class="k">打印机</span><span class="v">Zebra · label-pkg-01</span></div>
+          <div class="kv"><span class="k">模板</span><span class="v">pallet.zpl</span></div>
+          <div class="kv"><span class="k">补打次数</span><span class="v" id="p-reprint-n">0</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>最近栈板</h2></div>
+          <div class="rec-list" id="p-recent"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       工位 4：仓库 warehouse
+       ================================================================== -->
+  <section class="pane" id="pane-warehouse">
+    <div class="layout">
+      <div class="col-main">
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-label">当前库区</div>
+            <div class="stat-value mid">成品库 A 区</div>
+            <div class="stat-sub">8 列 × 4 层 × 3 排</div>
+          </div>
+          <div class="stat ok">
+            <div class="stat-label">占用率</div>
+            <div class="stat-value num"><span id="h-usage">62</span><span class="unit">%</span></div>
+            <div class="stat-sub">空闲 <span id="h-empty">36</span> · 占用 <span id="h-occupied">62</span></div>
+          </div>
+          <div class="stat warn">
+            <div class="stat-label">待入库料车</div>
+            <div class="stat-value num"><span id="h-trolley">5</span><span class="unit">辆</span></div>
+            <div class="stat-sub">今日入库 <span id="h-in">37</span> · 出库 <span id="h-out">12</span></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>库位实时状态</h2>
+            <span class="src">来源：仓库 PLC 库位信号 · 绿=占用 黄=预留 灰=空闲</span>
+          </div>
+          <div class="cell-grid" id="h-grid" style="grid-template-columns: repeat(8, minmax(0,1fr));"></div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-primary btn-xl" id="hInBtn">入库确认</button>
+          <button class="btn btn-info btn-xl" id="hOutBtn">手动出库</button>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-ghost" id="hQueryBtn">库位查询</button>
+          <button class="btn btn-ghost" id="hReprintBtn">标签补打</button>
+        </div>
+      </div>
+
+      <aside class="col-side">
+        <div class="panel">
+          <div class="panel-head"><h2>扫描库位 / 托盘</h2></div>
+          <div class="scan-bar">
+            <input class="scan-input" id="h-scan" placeholder="扫描托盘码…" autocomplete="off" style="min-height:76px">
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>设备状态</h2></div>
+          <div class="kv"><span class="k"><span class="dot-sm dot-ok"></span>仓库 PLC</span><span class="v">在线</span></div>
+          <div class="kv"><span class="k"><span class="dot-sm dot-ok"></span>标签打印机</span><span class="v">在线</span></div>
+          <div class="kv"><span class="k"><span class="dot-sm dot-off"></span>叉车终端</span><span class="v">未接入</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>最近出入库</h2></div>
+          <div class="rec-list" id="h-recent"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+</main>
+
+<div class="proto-note">
+  <b>原型说明：</b>本页为静态交互原型，未连接真实边端接口；数据由脚本模拟。
+  按钮最小高度 64px，主操作 112px，正文 18px 起；无 hover 依赖，无长表单滚动。
+  断网模拟仅改变界面状态，不改变任何真实数据。
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* =====================================================================
+   状态
+   ===================================================================== */
+const state = {
+  station: 'winding',
+  net: 'online',        // online | offline | syncing
+  pendingSync: 0,       // 待同步条数
+  stationCode: 'winding'
+};
+
+const $  = (id) => document.getElementById(id);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+/* =====================================================================
+   toast：所有操作都给可见反馈，绝不静默
+   ===================================================================== */
+function toast(msg, kind = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.textContent = msg;
+  $('toastWrap').appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+/* 数值跳动时闪一下 */
+function flash(el) {
+  if (!el) return;
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function setNum(el, value) {
+  if (!el) return;
+  if (String(el.textContent) !== String(value)) {
+    el.textContent = value;
+    flash(el);
+  }
+}
+
+/* =====================================================================
+   网络状态：在线 / 离线 / 同步中
+   ===================================================================== */
+const NET_TEXT = { online: '在线', offline: '离线', syncing: '同步中' };
+
+function setNet(mode) {
+  state.net = mode;
+  const badge = $('netBadge');
+  badge.className = 'net-badge ' + mode;
+  $('netText').textContent = NET_TEXT[mode];
+  document.body.classList.toggle('is-offline', mode !== 'online');
+
+  const bar = $('offlineBar');
+  if (mode === 'offline') {
+    bar.className = 'offline-bar show';
+    $('offlineText').textContent = '离线运行';
+    $('offlineHint').textContent =
+      '业务照常可用：数据先写本地 SQLite，联网后自动同步（当前待同步 ' + state.pendingSync + ' 条）';
+    $('netToggle').textContent = '原型：恢复在线';
+  } else if (mode === 'syncing') {
+    bar.className = 'offline-bar show syncing';
+    $('offlineText').textContent = '同步中';
+    $('offlineHint').textContent = '正在上传本地记录，请勿关闭页面…';
+    $('netToggle').textContent = '原型：恢复在线';
+  } else {
+    bar.className = 'offline-bar';
+    $('netToggle').textContent = '原型：模拟断网';
+  }
+}
+
+$('netToggle').addEventListener('click', () => {
+  if (state.net === 'online') {
+    setNet('offline');
+    toast('已模拟断网：页面进入离线态，数据写本地', 'warn');
+  } else {
+    setNet('syncing');
+    toast('已恢复网络，正在同步本地记录…', '');
+    setTimeout(() => {
+      state.pendingSync = 0;
+      setNet('online');
+      toast('同步完成', 'ok');
+    }, 3000);
+  }
+});
+
+/* 断网时产生的操作累加待同步条数 */
+function bumpPending(n = 1) {
+  if (state.net === 'online') return;
+  state.pendingSync += n;
+  if (state.net === 'offline') {
+    $('offlineHint').textContent =
+      '业务照常可用：数据先写本地 SQLite，联网后自动同步（当前待同步 ' + state.pendingSync + ' 条）';
+  }
+}
+
+/* =====================================================================
+   工位切换（模拟 window.__IGH_EDGE__.type）
+   ===================================================================== */
+$$('#stationSwitch button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const s = btn.dataset.station;
+    state.station = s;
+    state.stationCode = s;
+    $$('#stationSwitch button').forEach(b => b.classList.toggle('active', b === btn));
+    $$('.pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + s));
+    toast('已切换到「' + btn.textContent + '」工位（真实环境由 edge.yaml 的 edge.type 决定，页面本身不提供切换）');
+  });
+});
+
+/* =====================================================================
+   时钟
+   ===================================================================== */
+function tickClock() {
+  const d = new Date();
+  $('clock').textContent = [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map(n => String(n).padStart(2, '0')).join(':');
+}
+
+/* =====================================================================
+   落筒工位
+   ===================================================================== */
+const winders = [
+  { no: 1, len: 4820, state: 'winding' },
+  { no: 2, len: 6210, state: 'winding' },
+  { no: 3, len: 8140, state: 'winding' },
+  { no: 4, len: 9120, state: 'full'    },
+  { no: 5, len: 7650, state: 'winding' },
+  { no: 6, len: 5340, state: 'winding' },
+  { no: 7, len: 9980, state: 'full'    },
+  { no: 8, len: 3010, state: 'winding' },
+];
+const TARGET_LEN = 10000;
+
+function renderWinders() {
+  const box = $('w-spindles');
+  box.innerHTML = winders.map(w => {
+    const pct = Math.min(100, Math.round(w.len / TARGET_LEN * 100));
+    const cls = w.state === 'full' ? 'full' : '';
+    const label = w.state === 'full' ? '满筒 · 等待落筒' : '卷绕中';
+    return `
+      <div class="spindle ${cls}">
+        <div class="spindle-head"><span>W${w.no}</span><span class="num">${pct}%</span></div>
+        <div class="spindle-len num">${w.len.toLocaleString()}<span class="u"> m</span></div>
+        <div class="spindle-state">${label}</div>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+      </div>`;
+  }).join('');
+}
+
+function renderWindingRecent() {
+  const rows = [
+    { no: 'D-0181', time: '10:42', n: 8, ok: true },
+    { no: 'D-0180', time: '10:31', n: 8, ok: true },
+    { no: 'D-0179', time: '10:19', n: 7, ok: false, note: '缺 1 锭' },
+    { no: 'D-0178', time: '10:08', n: 8, ok: true },
+  ];
+  $('w-recent').innerHTML = rows.map(r => `
+    <div class="rec">
+      <span class="r1 mono">${r.no}</span>
+      <span class="tag ${r.ok ? 'tag-ok' : 'tag-warn'}">${r.ok ? '完整' : '异常'}</span>
+      <span class="r2">${r.time} · ${r.n} 锭${r.note ? ' · ' + r.note : ''}</span>
+    </div>`).join('');
+}
+
+$('wDoffBtn').addEventListener('click', () => {
+  const fullCount = winders.filter(w => w.state === 'full').length;
+  if (fullCount === 0) {
+    toast('当前没有满筒锭位，无需落筒', 'warn');
+    return;
+  }
+  winders.forEach(w => { w.len = 0; w.state = 'winding'; });
+  const doffNo = 183 + Math.floor(Math.random() * 3);
+  $('w-doff-no').textContent = 'D-0' + doffNo;
+  setNum($('w-doff-n'), 0);
+  const todayDoff = parseInt($('w-today-doff').textContent, 10) + 1;
+  setNum($('w-today-doff'), todayDoff);
+  setNum($('w-today-bobbin'), todayDoff * 8);
+  renderWinders();
+  bumpPending(1);
+  toast(state.net === 'online'
+    ? '落筒已确认：' + fullCount + ' 锭入库并上报中心'
+    : '落筒已确认：写入本地库，联网后自动同步', 'ok');
+});
+
+$('wTrolleyBtn').addEventListener('click', () => {
+  const n = parseInt($('w-trolley').textContent, 10) + 1;
+  setNum($('w-trolley'), n);
+  bumpPending(1);
+  toast('料车装载完成，已绑定本次落筒', 'ok');
+});
+
+$('wReprintBtn').addEventListener('click', () => {
+  setNum($('w-print-queue'), parseInt($('w-print-queue').textContent, 10) + 1);
+  bumpPending(1);
+  toast('标签补打已排队（bobbin.zpl → Zebra ZT411）', 'ok');
+});
+
+$('wPrintTest').addEventListener('click', () => {
+  toast('测试标签已发送到 Zebra ZT411，请检查打印结果', 'ok');
+});
+
+$('wOverrideBtn').addEventListener('click', () => {
+  toast('手动干预需要联网审核，离线状态下不可用', 'bad');
+});
+
+/* =====================================================================
+   外检工位
+   ===================================================================== */
+const sortingState = { bobbin: 'W3-0245', grade: null, defects: new Set() };
+
+function renderSortingRecent() {
+  const rows = [
+    { id: 'W3-0244', grade: 'AA', time: '10:44' },
+    { id: 'W3-0243', grade: 'AAA', time: '10:43' },
+    { id: 'W3-0242', grade: 'A1', time: '10:42', bad: true },
+    { id: 'W3-0241', grade: 'AA', time: '10:41' },
+  ];
+  $('s-recent').innerHTML = rows.map(r => `
+    <div class="rec">
+      <span class="r1 mono">${r.id}</span>
+      <span class="tag ${r.bad ? 'tag-warn' : 'tag-ok'}">${r.grade}</span>
+      <span class="r2">${r.time} · 已打标</span>
+    </div>`).join('');
+}
+
+function submitSorting(grade) {
+  if (state.net === 'syncing') {
+    toast('同步中，请稍候再提交', 'warn');
+    return;
+  }
+  const defectText = sortingState.defects.size
+    ? [...sortingState.defects].join(',')
+    : '无缺陷';
+  $('s-recent').insertAdjacentHTML('afterbegin', `
+    <div class="rec">
+      <span class="r1 mono">${sortingState.bobbin}</span>
+      <span class="tag ${grade === 'A' ? 'tag-warn' : 'tag-ok'}">${grade}</span>
+      <span class="r2">刚刚 · ${defectText}</span>
+    </div>`);
+  setNum($('s-done'), parseInt($('s-done').textContent, 10) + 1);
+  setNum($('s-queue'), Math.max(0, parseInt($('s-queue').textContent, 10) - 1));
+
+  const dEl = $('d-' + grade);
+  if (dEl) setNum(dEl, parseInt(dEl.textContent, 10) + 1);
+
+  // 模拟 PLC 打标握手：Start → 打印 → Done
+  $('s-start').textContent = '1';
+  $('s-step').textContent = '2';
+  setTimeout(() => {
+    $('s-done-signal').textContent = '1';
+    toast('已提交 ' + grade + '，打标完成并回写 Done[3]=1', 'ok');
+    setTimeout(() => { $('s-start').textContent = '0'; }, 900);
+  }, 700);
+
+  sortingState.bobbin = 'W3-0' + (246 + Math.floor(Math.random() * 9));
+  $('s-bobbin').textContent = sortingState.bobbin;
+  setNum($('s-weight'), (5.2 + Math.random() * 0.4).toFixed(3));
+  sortingState.defects.clear();
+  $$('.defect-btn').forEach(b => b.classList.remove('sel'));
+  $$('.grade-btn').forEach(b => b.classList.remove('sel'));
+  bumpPending(1);
+  $('s-scan').value = '';
+}
+
+$$('#s-grades .grade-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const g = btn.dataset.grade;
+    $$('#s-grades .grade-btn').forEach(b => b.classList.toggle('sel', b === btn));
+    submitSorting(g);
+  });
+});
+
+$$('#s-defects .defect-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const d = btn.dataset.defect;
+    if (sortingState.defects.has(d)) {
+      sortingState.defects.delete(d);
+      btn.classList.remove('sel');
+    } else {
+      sortingState.defects.add(d);
+      btn.classList.add('sel');
+    }
+  });
+});
+
+/* 扫码枪：键盘模拟输入 + 回车 */
+$('s-scan').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const code = e.target.value.trim();
+  if (!code) { toast('没有读到条码，请重新扫描', 'warn'); return; }
+  if (code === sortingState.bobbin) {
+    toast('这一锭已经扫过了：' + code, 'bad');
+    e.target.value = '';
+    return;
+  }
+  sortingState.bobbin = code;
+  $('s-bobbin').textContent = code;
+  setNum($('s-weight'), (5.2 + Math.random() * 0.4).toFixed(3));
+  e.target.value = '';
+  toast('已识别：' + code + '，请选择等级', 'ok');
+});
+
+$('s-clear').addEventListener('click', () => {
+  $('s-scan').value = '';
+  sortingState.defects.clear();
+  $$('.defect-btn').forEach(b => b.classList.remove('sel'));
+});
+
+/* =====================================================================
+   包装工位
+   ===================================================================== */
+const PALLET_SLOTS = 24;
+let palletPos = 24;   // 0-based，24 表示未开始
+
+function renderPallet() {
+  const box = $('p-pallet');
+  let html = '';
+  for (let i = 0; i < PALLET_SLOTS; i++) {
+    const layer = Math.floor(i / 6) + 1;
+    const col = i % 6 + 1;
+    let cls = 'cell';
+    if (i < palletPos) cls += ' occupied';
+    if (i === palletPos) cls += ' current';
+    html += `<div class="${cls}">${layer}-${col}</div>`;
+  }
+  box.innerHTML = html;
+}
+
+function renderPackagingRecent() {
+  const rows = [
+    { code: 'PLT-20261111-0031', n: 48, time: '10:38' },
+    { code: 'PLT-20261111-0030', n: 48, time: '10:12' },
+    { code: 'PLT-20261111-0029', n: 47, time: '09:47', note: '少 1 锭' },
+  ];
+  $('p-recent').innerHTML = rows.map(r => `
+    <div class="rec">
+      <span class="r1 mono">${r.code}</span>
+      <span class="tag ${r.note ? 'tag-warn' : 'tag-ok'}">${r.n} 锭</span>
+      <span class="r2">${r.time}${r.note ? ' · ' + r.note : ' · 已打印标签'}</span>
+    </div>`).join('');
+}
+
+$('p-scan').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const code = e.target.value.trim();
+  if (!code) { toast('没有读到条码，请重新扫描', 'warn'); return; }
+  const cur = parseInt($('p-intake').textContent, 10);
+  if (cur >= 48) {
+    toast('本垛已满 48 锭，请先完成上垛', 'warn');
+    e.target.value = '';
+    return;
+  }
+  setNum($('p-intake'), cur + 1);
+  if ((cur + 1) % 2 === 0 && palletPos < PALLET_SLOTS) {
+    palletPos++;
+    renderPallet();
+  }
+  $('p-layer').textContent = Math.min(4, Math.floor(palletPos / 6) + 1) + ' / 4';
+  e.target.value = '';
+  bumpPending(1);
+  toast('已上料：' + code + '（' + (cur + 1) + '/48）', 'ok');
+});
+
+$('p-replace').addEventListener('click', () => {
+  setNum($('p-intake'), 0);
+  palletPos = 0;
+  renderPallet();
+  toast('已清空本垛上料记录，重新开始扫码', 'warn');
+});
+
+$('pCompleteBtn').addEventListener('click', () => {
+  const n = parseInt($('p-intake').textContent, 10);
+  if (n === 0) { toast('本垛还没有上料记录', 'warn'); return; }
+  const pallets = parseInt($('p-pallets').textContent, 10) + 1;
+  setNum($('p-pallets'), pallets);
+  setNum($('p-packed'), Math.min(192, parseInt($('p-packed').textContent, 10) + n));
+  setNum($('p-intake'), 0);
+  palletPos = 0;
+  renderPallet();
+
+  // 模拟 PLC 出垛握手
+  $('p-complete').textContent = '1';
+  setTimeout(() => { $('p-ack').textContent = '1'; }, 600);
+  setTimeout(() => { $('p-complete').textContent = '0'; $('p-ack').textContent = '0'; }, 1600);
+
+  bumpPending(2);
+  toast('上垛完成：已生成栈板记录并打印 pallet.zpl', 'ok');
+});
+
+$('pPrintBtn').addEventListener('click', () => {
+  setNum($('p-reprint-n'), parseInt($('p-reprint-n').textContent, 10) + 1);
+  bumpPending(1);
+  toast('栈板标签补打已排队（pallet.zpl → label-pkg-01）', 'ok');
+});
+
+/* =====================================================================
+   仓库工位
+   ===================================================================== */
+const H_COLS = 8, H_ROWS = 4, H_LAYERS = 3;
+const hCells = [];   // 'empty' | 'occupied' | 'reserved'
+
+function initWarehouse() {
+  hCells.length = 0;
+  for (let i = 0; i < H_COLS * H_ROWS; i++) {
+    hCells.push(Math.random() < 0.62 ? 'occupied' : (Math.random() < 0.1 ? 'reserved' : 'empty'));
+  }
+}
+
+function renderWarehouse(changedIdx = -1) {
+  const box = $('h-grid');
+  let html = '';
+  hCells.forEach((st, i) => {
+    const row = Math.floor(i / H_COLS) + 1;
+    const col = i % H_COLS + 1;
+    let cls = 'cell ' + st;
+    if (i === changedIdx) cls += ' changed';
+    html += `<div class="${cls}">${row}-${col}</div>`;
+  });
+  box.innerHTML = html;
+
+  const occ = hCells.filter(s => s === 'occupied').length;
+  const empty = hCells.filter(s => s === 'empty').length;
+  setNum($('h-occupied'), occ);
+  setNum($('h-empty'), empty);
+  setNum($('h-usage'), Math.round(occ / hCells.length * 100));
+}
+
+function renderWarehouseRecent() {
+  const rows = [
+    { slot: '2-3', act: '入库', code: 'PLT-...0031', time: '10:39', in: true },
+    { slot: '4-7', act: '出库', code: 'PLT-...0024', time: '10:22', in: false },
+    { slot: '1-1', act: '入库', code: 'PLT-...0030', time: '10:13', in: true },
+  ];
+  $('h-recent').innerHTML = rows.map(r => `
+    <div class="rec">
+      <span class="r1 mono">库位 ${r.slot}</span>
+      <span class="tag ${r.in ? 'tag-ok' : 'tag-warn'}">${r.act}</span>
+      <span class="r2">${r.code} · ${r.time}</span>
+    </div>`).join('');
+}
+
+$('hInBtn').addEventListener('click', () => {
+  const idx = hCells.indexOf('empty');
+  if (idx < 0) { toast('没有空闲库位', 'bad'); return; }
+  hCells[idx] = 'occupied';
+  renderWarehouse(idx);
+  setNum($('h-in'), parseInt($('h-in').textContent, 10) + 1);
+  setNum($('h-trolley'), Math.max(0, parseInt($('h-trolley').textContent, 10) - 1));
+  bumpPending(1);
+  toast('入库完成：库位 ' + (Math.floor(idx / H_COLS) + 1) + '-' + (idx % H_COLS + 1), 'ok');
+});
+
+$('hOutBtn').addEventListener('click', () => {
+  const idx = hCells.indexOf('occupied');
+  if (idx < 0) { toast('没有已占用库位', 'bad'); return; }
+  hCells[idx] = 'empty';
+  renderWarehouse(idx);
+  setNum($('h-out'), parseInt($('h-out').textContent, 10) + 1);
+  bumpPending(1);
+  toast('出库完成：库位 ' + (Math.floor(idx / H_COLS) + 1) + '-' + (idx % H_COLS + 1), 'ok');
+});
+
+$('hQueryBtn').addEventListener('click', () => toast('库位查询：请先扫描托盘码'));
+$('hReprintBtn').addEventListener('click', () => toast('标签补打已排队', 'ok'));
+
+$('h-scan').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const code = e.target.value.trim();
+  if (!code) return;
+  e.target.value = '';
+  toast('已识别托盘：' + code + '，所在库位 2-3', 'ok');
+});
+
+/* =====================================================================
+   模拟 PLC 推送：每 1.2s 让数据动一点
+   ===================================================================== */
+let pulse = 0;
+
+function simulatePLC() {
+  pulse++;
+
+  // --- 落筒：锭位长度在涨，涨满变满筒 ---
+  let changed = false;
+  winders.forEach(w => {
+    if (w.state === 'full') return;
+    w.len = Math.min(TARGET_LEN, w.len + Math.floor(180 + Math.random() * 320));
+    if (w.len >= TARGET_LEN) w.state = 'full';
+    changed = true;
+  });
+  if (changed && state.station === 'winding') renderWinders();
+
+  const fullCount = winders.filter(w => w.state === 'full').length;
+  setNum($('w-doff-n'), fullCount);
+
+  // --- 外检：队列缓慢下降 ---
+  if (pulse % 4 === 0) {
+    const q = parseInt($('s-queue').textContent, 10);
+    if (q > 0) setNum($('s-queue'), q - 1);
+  }
+
+  // --- 包装：装载位置偶尔推进 ---
+  if (pulse % 6 === 0 && state.station === 'packaging') {
+    const cur = parseInt($('p-intake').textContent, 10);
+    if (cur < 48 && cur > 0) {
+      setNum($('p-intake'), cur + 1);
+      if ((cur + 1) % 2 === 0 && palletPos < PALLET_SLOTS) {
+        palletPos++;
+        renderPallet();
+      }
+    }
+  }
+
+  // --- 仓库：库位随机变化，模拟叉车进出 ---
+  if (pulse % 3 === 0 && state.station === 'warehouse') {
+    const i = Math.floor(Math.random() * hCells.length);
+    const prev = hCells[i];
+    hCells[i] = prev === 'occupied' ? 'empty' : (prev === 'empty' ? 'occupied' : 'empty');
+    renderWarehouse(i);
+  }
+}
+
+/* =====================================================================
+   启动
+   ===================================================================== */
+function boot() {
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  renderWinders();
+  renderWindingRecent();
+  renderSortingRecent();
+  renderPallet();
+  renderPackagingRecent();
+  initWarehouse();
+  renderWarehouse();
+  renderWarehouseRecent();
+
+  setInterval(simulatePLC, 1200);
+
+  // 右上角设备状态里，让"重连中"偶尔恢复，体现状态是活的
+  setInterval(() => {
+    const kv = $$('#pane-winding .kv')[2];
+    if (!kv) return;
+    const v = kv.querySelector('.v');
+    const dot = kv.querySelector('.dot-sm');
+    const back = v.textContent === '在线';
+    v.textContent = back ? '重连中' : '在线';
+    dot.className = 'dot-sm ' + (back ? 'dot-warn' : 'dot-ok');
+  }, 9000);
+}
+
+boot();
+</script>
+</body>
+</html>
