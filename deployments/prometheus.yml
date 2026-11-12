@@ -1,13 +1,112 @@
+# IGH Platform —— Prometheus 主配置
+#
+# 端口依据（已核对源码与配置，不是猜的）：
+#   cmd/server/main.go: addr := fmt.Sprintf(":%d", cfg.Server.HTTPPort)
+#   configs/project.yaml:         server.http_port: 8099   ← 生产形态
+#   configs-winding/project.yaml: server.http_port: 8099
+#   configs-edge3/project.yaml:   server.http_port: 8099
+#   configs-dev3/project.yaml:    server.http_port: 8101   ← 仅开发机
+#   configs-ha-sim/project.yaml:  server.http_port: 8103   ← 仅本机 HA 模拟
+# 因此生产采集端口统一用 8099；本机开发/模拟环境见文件末尾注释块。
+#
+# 注意：/metrics 与 /health 都是免鉴权路由（router.go:49），服务监听在所有网卡。
+# 部署时请确保防火墙只允许 Prometheus 所在主机访问 8099，不要把 /metrics 暴露到生产网。
+
 global:
   scrape_interval: 15s
+  # alerts.yml 里 rate() 的窗口按 15s 抓取间隔设计；若把这里调大，
+  # 需同步复核 [5m] / [10m] 这类窗口是否仍然够用。
+  evaluation_interval: 15s
+  external_labels:
+    cluster: igh-hx-jj
+    # 现场有多套（九江现场 / 开发环境）时靠这个区分，Alertmanager 按此路由。
+    env: prod
+
+# 告警规则。改完务必校验（CI 也会跑）：
+#   promtool check rules deployments/prometheus/alerts.yml
+rule_files:
+  - "/etc/prometheus/alerts.yml"
+
+# 告警投递。生产环境必须改成现场实际的 Alertmanager 地址；
+# 当前指向 docker compose 中的服务名，只适用于本机部署。
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+      timeout: 10s
 
 scrape_configs:
-  - job_name: 'igh-server'
-    static_configs:
-      - targets: ['host.docker.internal:8099']
+  # ------------------------------------------------------------------------
+  # 中心服务
+  # ------------------------------------------------------------------------
+  # 双机热备（ha.mode=active-standby）拓扑：两台服务器**都常驻运行** igh-server，
+  # 由 keepalived 决定谁持有 VIP（见 deployments/keepalived.conf）。
+  # 所以必须**两台都采**，不能只采 VIP：
+  #   1. 备机也要监控——它随时可能被提升为主，等到切换时才发现它有问题是来不及的；
+  #   2. 采 VIP 时切换瞬间 instance 标签不变但实际机器换了，
+  #      历史数据混在一起，事后追查"是哪台机器出的问题"就断了。
+  # 用 file_sd_configs：目标清单单独存放，改地址不用动本文件、不用重启 Prometheus。
+  - job_name: "igh-server"
     metrics_path: /metrics
+    file_sd_configs:
+      - files:
+          - "/etc/prometheus/targets/center.json"
+        refresh_interval: 30s
 
-  - job_name: 'igh-server-standby'
+  # ------------------------------------------------------------------------
+  # 边端（预留，暂不可用）
+  # ------------------------------------------------------------------------
+  # 边端进程 cmd/edge 目前**没有暴露 /metrics**（已确认：edge 侧未引入
+  # prometheus client，也没有 HTTP metrics 端点）。等补齐后再启用。
+  # 现在边端的健康状况只能通过中心侧间接判断，见 alerts.yml 的 igh-edge 组
+  # （走 igh_http_requests_total 里的 /api/v1/edge/* 路径）。
+  #
+  # - job_name: "igh-edge"
+  #   metrics_path: /metrics
+  #   file_sd_configs:
+  #     - files:
+  #         - "/etc/prometheus/targets/edge.json"
+  #       refresh_interval: 30s
+
+  # ------------------------------------------------------------------------
+  # 主机与数据库（建议尽快补上）
+  # ------------------------------------------------------------------------
+  # 目前没有任何主机层、数据库层采集，导致"磁盘写满""数据库不可写"
+  # 这类最要命的场景没有指标可用（alerts.yml 里都留了 TODO）。
+  # 现场上线建议增加：
+  #   node_exporter     → 磁盘、内存、网络。日志与归档文件都写在本地盘上，
+  #                       磁盘写满会让服务直接写失败，必须监控。
+  #   postgres_exporter → 连接数、复制延迟、是否只读。比中心自己算的
+  #                       igh_db_* 更完整，也能覆盖 hactl 那套主备切换。
+  #
+  # - job_name: "node"
+  #   static_configs:
+  #     - targets: ["192.168.10.1:9100", "192.168.10.2:9100"]
+  #
+  # - job_name: "postgres"
+  #   static_configs:
+  #     - targets: ["192.168.10.1:9187", "192.168.10.2:9187"]
+
+  # 自监控：Prometheus 自己宕掉时，"所有告警都没发出来"这件事必须能被发现，
+  # 否则整个监控体系静默失效。配合 alerts.yml 的 up == 0 使用。
+  - job_name: "prometheus"
     static_configs:
-      - targets: ['192.168.10.2:8099']
-    metrics_path: /metrics
+      - targets: ["localhost:9090"]
+
+# ----------------------------------------------------------------------------
+# 本机开发 / 模拟环境：把上面 igh-server 那个 job 换成下面这段
+# ----------------------------------------------------------------------------
+# docker compose 起中心服务时（docker-compose.yml 映射 8099:8099），
+# 容器内 Prometheus 访问宿主机要用 host.docker.internal：
+#
+#   - job_name: "igh-server"
+#     static_configs:
+#       - targets: ["host.docker.internal:8099"]
+#
+# 跑 configs-ha-sim 模拟双机时中心端口是 8103：
+#
+#       - targets: ["host.docker.internal:8103"]
+#
+# 跑 configs-dev3 开发配置时（http_port: 8101）：
+#
+#       - targets: ["host.docker.internal:8101"]

@@ -1,0 +1,423 @@
+# IGH Platform —— Prometheus 告警规则
+#
+# ============================================================================
+# 重要前提（写规则前必须知道，否则规则会静默失效）
+# ============================================================================
+# 本文件里的规则只允许引用 metrics 包中**真实被写入**的指标。
+# 2026-11 实测 internal/server/metrics/metrics.go：定义了 9 个指标族，
+# 但全仓 grep 只有 2 个被使用（都在 middleware/metrics.go 里）：
+#
+#   已写入（可安全告警）：
+#     igh_http_requests_total{method,path,status}          CounterVec
+#     igh_http_request_duration_seconds{method,path}       HistogramVec
+#
+#   已定义但**从未写入**（严禁直接拿来告警）：
+#     igh_edge_events_total{edge_id,event_type}    CounterVec  → 一个序列都不导出
+#     igh_edge_nodes_online                        Gauge       → 恒为 0
+#     igh_active_alarms                            Gauge       → 恒为 0
+#     igh_doffings_total                           Counter     → 恒为 0
+#     igh_bobbins_total                            Counter     → 恒为 0
+#     igh_plc_connected{edge_id,device_code}       GaugeVec    → 一个序列都不导出
+#     igh_warehouse_occupancy{warehouse_code,status} GaugeVec  → 一个序列都不导出
+#
+# 区别很关键（已用最小复现程序验证）：
+#   - 非 Vec 的 Gauge/Counter（igh_edge_nodes_online 等）在 promauto 注册时就
+#     导出初值 0，所以 `igh_edge_nodes_online == 0` 会**永久告警**，天天误报；
+#   - Vec 类型在没有任何 WithLabelValues 调用时**连 HELP/TYPE 都不导出**，
+#     所以 `absent()` / `== 0` 之类的表达式匹配不到任何序列，告警**永不触发**。
+# 两种都是灾难：一种是狼来了，一种是以为有监控其实是瞎的。
+#
+# 因此下面凡是"场景对不上真实指标"的，一律放在注释块里，并标注
+# TODO(需补指标)，补完指标后再取消注释。不要提前启用。
+#
+# 另外可直接使用的标准指标（client_golang 默认注册表自带，已实测导出）：
+#   up{job,instance}、go_*（35 条）、process_*（6 条）、promhttp_*（4 条）
+# ============================================================================
+
+groups:
+  # --------------------------------------------------------------------------
+  # 可用性
+  # --------------------------------------------------------------------------
+  - name: igh-availability
+    rules:
+      # 必要性：这是最基础的一条。进程没了，后面所有业务指标都停在最后一个值，
+      # 看板上一切"正常"——那是最危险的假象。
+      # 现场含义：center-a 或 center-b 的 /metrics 抓不到了。可能是进程退出、
+      # 端口不通、防火墙、或机器宕机。
+      # 双机热备下单片 down 不一定影响业务（VIP 会漂移到另一台），所以这里
+      # 分严重度：单台 critical，两台同时 down 才是真正的整体不可用。
+      - alert: IghServerDown
+        expr: up{job="igh-server"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: center
+        annotations:
+          summary: "中心服务实例 {{ $labels.instance }} 已宕机"
+          description: "{{ $labels.instance }} 的 /metrics 抓取失败超过 1 分钟。检查进程是否存活、端口 8099 是否监听、是否有防火墙拦截。"
+
+      # 必要性：单台 down 在热备下业务仍可用，但冗余已经归零——
+      # 此时另一台再出问题就是全线停机。必须当成"还没出事的前兆"处理。
+      - alert: IghAllCenterInstancesDown
+        expr: |
+          (
+            count(up{job="igh-server"} == 1)
+              or vector(0)
+          ) == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: center
+        annotations:
+          summary: "所有中心服务实例均不可用"
+          description: "igh-server 的所有抓取目标都抓不到 /metrics，业务已整体中断。立即检查 VIP 是否漂移到了无服务的节点、以及两台机器的进程状态。"
+
+      # 必要性：进程活着但完全卡死、或者上游流量根本进不来（VIP 配错、
+      # 负载均衡指向别处、路由表错误）时，up 仍然是 1。
+      # 现场含义：不是服务挂了，是服务收不到业务流量。两者排查方向完全相反。
+      #
+      # 两个细节：
+      #   1. 必须排除 /metrics 与 /health。Prometheus 每 15s 抓一次 /metrics，
+      #      这条请求自己就记进了 igh_http_requests_total，不排除的话
+      #      rate 永远大于 0，这条规则永不触发——是个静默失效的假规则。
+      #   2. `or vector(0)` 让"一个序列都没有"也按 0 处理，
+      #      否则空向量参与比较得到空结果，同样不会触发。
+      - alert: IghNoIncomingTraffic
+        expr: |
+          (
+            sum(rate(igh_http_requests_total{path!~"/metrics|/health"}[5m]))
+              or vector(0)
+          ) == 0
+          and on()
+          sum(up{job="igh-server"}) > 0
+        for: 10m
+        labels:
+          severity: warning
+          component: center
+        annotations:
+          summary: "中心服务 10 分钟无任何业务 HTTP 流量"
+          description: "进程存活但 5 分钟内没有业务请求（已排除 /metrics、/health）。检查 VIP/反向代理是否指向了别的节点，或前端是否整体不可达。"
+
+  # --------------------------------------------------------------------------
+  # HTTP 服务质量
+  # --------------------------------------------------------------------------
+  - name: igh-http-slo
+    rules:
+      # 必要性：5xx 是"服务端自己出错"，与 4xx（客户端参数错）性质完全不同。
+      # 现场含义：某类请求开始大面积失败。按 path 分组是为了直接指出
+      # "是哪个接口坏了"，否则值班的人还得自己去翻日志找规律。
+      # 用 rate 而非绝对计数：现场请求量差异大，比例才有可比性。
+      - alert: IghHTTP5xxRateHigh
+        expr: |
+          (
+            sum by (path) (rate(igh_http_requests_total{status=~"5.."}[5m]))
+              /
+            sum by (path) (rate(igh_http_requests_total[5m]))
+          ) > 0.05
+          and
+          sum by (path) (rate(igh_http_requests_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: center
+        annotations:
+          summary: "接口 {{ $labels.path }} 5xx 比例超过 5%"
+          description: "{{ $labels.path }} 最近 5 分钟服务端错误率 {{ $value | humanizePercentage }}。先看服务日志里该接口的 error 行，再确认数据库是否可写（/health 的 database.healthy）。"
+
+      # 必要性：整体 5xx 比例，用于兜底——单个接口阈值可能被稀释。
+      # 现场含义：整个中心服务在出错，通常是数据库、依赖服务或代码级故障。
+      - alert: IghHTTP5xxOverallHigh
+        expr: |
+          sum(rate(igh_http_requests_total{status=~"5.."}[5m]))
+            /
+          sum(rate(igh_http_requests_total[5m])) > 0.10
+        for: 5m
+        labels:
+          severity: critical
+          component: center
+        annotations:
+          summary: "中心服务整体 5xx 比例超过 10%"
+          description: "整体服务端错误率 {{ $value | humanizePercentage }}。这通常意味着数据库不可用或出现级联故障，优先查 /health 与数据库连接。"
+
+      # 必要性：延迟劣化往往先于错误率上升出现，是更早的预警信号。
+      # 现场含义：接口变慢。MES 现场表现为扫码后界面卡住、边端上传超时。
+      # 注意：直方图最高桶只到 5 秒（metrics.go 里的 Buckets），
+      # 所以 p99 超过 5 秒时会被"钉"在 5 秒这个值上，无法区分 6 秒还是 60 秒。
+      # 阈值 2s 取在 1s 与 5s 桶之间，是现有桶能分辨的合理位置。
+      - alert: IghHTTPLatencyP99High
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le, path) (rate(igh_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+          and
+          sum by (path) (rate(igh_http_request_duration_seconds_count[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: center
+        annotations:
+          summary: "接口 {{ $labels.path }} P99 延迟超过 2 秒"
+          description: "{{ $labels.path }} 的 P99 延迟为 {{ $value | humanizeDuration }}，持续 10 分钟。先查慢查询与数据库锁，再看是否有大表扫描（归档任务同时段运行也可能造成）。"
+
+      # 必要性：path 标签来自 c.FullPath()，未匹配到路由时回退到原始 URL.Path。
+      # 这意味着扫描器/爬虫每打一个不存在的路径，就会新增一个 path 标签值——
+      # 序列数无上限增长，最终把 Prometheus 内存吃满。
+      # 现场含义：有人在扫描，或者前端在拼错误的 URL。前者考虑加访问控制，
+      # 后者说明前端有 bug 在持续 404。指标本身也需要修（见 docs/monitoring.md）。
+      - alert: IghHTTPPathCardinalityHigh
+        expr: count(count by (path) (igh_http_requests_total)) > 200
+        for: 30m
+        labels:
+          severity: warning
+          component: center
+        annotations:
+          summary: "HTTP path 标签基数异常（当前 {{ $value }} 个）"
+          description: "path 标签值超过 200 个，多为 404 扫描或未匹配路由导致。需在 middleware/metrics.go 中对未匹配路径做归一化（例如统一记为 __unmatched__）。"
+
+  # --------------------------------------------------------------------------
+  # 边端链路
+  # --------------------------------------------------------------------------
+  - name: igh-edge
+    rules:
+      # 必要性：边端是数据源头，边端不上报 = 中心看不到产线。
+      # 这条**不是**用 igh_edge_events_total（那个指标从未写入、一个序列都没有），
+      # 而是用真实存在的 HTTP 请求计数：边端心跳打的就是
+      # POST /api/v1/edge/heartbeat（见 router.go:78）。
+      # 现场含义：网络断了、边端进程挂了、或 API-Key 失效（会返回 401 而非无请求）。
+      #
+      # 两个必须的写法细节（都用 promtool test rules 验证过，写错就会静默失效）：
+      #   1. `or vector(0)`：心跳序列消失后 sum() 得到的是空向量而不是 0，
+      #      空向量参与 `== 0` 不匹配，告警永不触发。必须补成 0。
+      #   2. 守卫条件必须用 `and ... > 0` 且**排除心跳自身**：
+      #      语义是"其它业务流量还在，唯独心跳没了"。
+      #      早先写成 `unless (全站流量 == 0)` 是错的——心跳停但其它流量正常时，
+      #      右式为假、左式为真，`unless` 照样会把告警吃掉，规则永远不响。
+      - alert: IghEdgeHeartbeatStopped
+        expr: |
+          (
+            sum(rate(igh_http_requests_total{path="/api/v1/edge/heartbeat"}[10m]))
+              or vector(0)
+          ) == 0
+          and on()
+          (
+            sum(rate(igh_http_requests_total{path!~"/api/v1/edge/heartbeat|/metrics|/health"}[10m]))
+              or vector(0)
+          ) > 0
+        for: 15m
+        labels:
+          severity: critical
+          component: edge
+        annotations:
+          summary: "边端心跳已中断 10 分钟以上"
+          description: "中心服务仍在处理其它请求，但已连续 10 分钟没有收到任何边端心跳。检查边端 PC 是否在线、到中心的网络是否连通、边端进程是否存活。"
+
+      # 必要性：心跳还在，但上传停了——这是"边端活着却不干活"的状态，
+      # 往往意味着边端本地队列积压或插件卡死。
+      # 现场含义：边端还在打卡但数据上不来，现场表象是"看板数据不动了"。
+      - alert: IghEdgeUploadStopped
+        expr: |
+          (
+              (
+                sum(rate(igh_http_requests_total{path="/api/v1/edge/upload"}[15m]))
+                  or vector(0)
+              )
+            + (
+                sum(rate(igh_http_requests_total{path="/api/v1/edge/upload/batch"}[15m]))
+                  or vector(0)
+              )
+          ) == 0
+          and on()
+          (
+            sum(rate(igh_http_requests_total{path="/api/v1/edge/heartbeat"}[15m]))
+              or vector(0)
+          ) > 0
+        for: 30m
+        labels:
+          severity: warning
+          component: edge
+        annotations:
+          summary: "边端心跳正常但数据上传已停止 15 分钟"
+          description: "边端仍在发心跳，但 upload/upload.batch 均无请求。检查边端队列（EdgeNode.queue_depth）、PLC 采集状态与插件运行日志。"
+
+      # 必要性：边端上报接口本身开始失败（401/500）。401 往往是 API-Key 配错，
+      # 500 可能是入库失败。与"没有请求"是两回事，必须分开报。
+      - alert: IghEdgeIngestErrors
+        expr: |
+          sum(rate(igh_http_requests_total{path=~"/api/v1/edge/(upload|upload/batch|heartbeat)",status=~"[45].."}[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: edge
+        annotations:
+          summary: "边端上报接口持续返回错误"
+          description: "边端 upload/heartbeat 接口 5 分钟内错误速率 {{ $value | humanize }} 次/秒。status 为 401 时检查 API-Key 是否与边端配置一致；5xx 时检查数据库是否可写。"
+
+      # TODO(需补指标)：真正的边端在线数量告警。
+      # 现有 igh_edge_nodes_online 是 Gauge 且从未 Set，永远导出 0，
+      # 若直接写 `igh_edge_nodes_online == 0` 会永久告警（已实测导出行为）。
+      # 补法：在 metrics.go 已备好该 Gauge；在心跳处理（service/edge.go Heartbeat）
+      # 或一个定时任务里统计 status=online 的 EdgeNode 数量并 Set。
+      # 补完后可启用：
+      # - alert: IghEdgeNodesOffline
+      #   expr: igh_edge_nodes_online == 0
+      #   for: 5m
+      #   labels:
+      #     severity: critical
+      #   annotations:
+      #     summary: "没有任何边端在线"
+
+      # TODO(需补指标)：事件积压（edge_events 待处理）。
+      # 目前没有"边端本地待上报队列深度"与"中心待处理事件数"的指标。
+      # 可用的近似线索：EdgeNode.queue_depth 字段（心跳上报时写入数据库），
+      # 但它是数据库字段，不是 Prometheus 指标。
+      # 建议补：igh_edge_queue_depth{edge_id} Gauge（心跳处理时 Set(req.QueueDepth)）
+      #         igh_edge_events_pending Gauge（定时 COUNT status IN ('received')）
+      # 启用后规则形式：
+      # - alert: IghEdgeQueueBacklog
+      #   expr: igh_edge_queue_depth > 1000
+      #   for: 10m
+
+  # --------------------------------------------------------------------------
+  # 运行态资源（标准指标，真实可用）
+  # --------------------------------------------------------------------------
+  - name: igh-runtime
+    rules:
+      # 必要性：Go 进程内存泄漏在现场通常表现为"跑几天后必须重启"。
+      # 现场含义：常驻内存持续增长。500MB 是保守阈值，现场机器普遍更大，
+      # 按实际部署调整。
+      - alert: IghHighMemoryUsage
+        expr: process_resident_memory_bytes{job="igh-server"} > 500 * 1024 * 1024
+        for: 15m
+        labels:
+          severity: warning
+          component: center
+        annotations:
+          summary: "中心服务内存占用超过 500MB（{{ $labels.instance }}）"
+          description: "常驻内存 {{ $value | humanize1024 }}B，持续 15 分钟。检查是否有 goroutine 泄漏或大结果集未释放。"
+
+      # 必要性：goroutine 泄漏的典型特征是数量单调上涨且不回落。
+      # 2000 这个值远高于正常水平（本项目并发量小），超出即需人工确认。
+      - alert: IghGoroutineLeak
+        expr: go_goroutines{job="igh-server"} > 2000
+        for: 30m
+        labels:
+          severity: warning
+          component: center
+        annotations:
+          summary: "中心服务 goroutine 数异常（{{ $value }}）"
+          description: "goroutine 数量超过 2000 持续 30 分钟，疑似泄漏。抓取 /debug/pprof/goroutine?debug=2 定位。"
+
+      # 必要性：文件描述符耗尽会让服务突然"什么都连不上"，且现象迷惑
+      # （数据库看起来好好的，就是连不了）。
+      # process_max_fds 在 Linux 上通常为 65536（受 systemd LimitNOFILE 影响）。
+      - alert: IghHighFDUsage
+        expr: |
+          process_open_fds{job="igh-server"} / process_max_fds{job="igh-server"} > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: center
+        annotations:
+          summary: "中心服务文件描述符使用率超过 80%（{{ $labels.instance }}）"
+          description: "已用 {{ $value | humanizePercentage }} 的文件描述符。检查是否连接未关闭（数据库连接池、HTTP 客户端、WebSocket）。"
+
+      # 必要性：进程反复重启意味着有崩溃循环，看板上却可能因为间隔太短
+      # 而看不到 up 掉下去（每次重启的窗口小于抓取间隔）。
+      # 现场含义：服务在崩溃-重启循环中，业务时断时续。
+      - alert: IghServerRestarting
+        expr: |
+          changes(process_start_time_seconds{job="igh-server"}[1h]) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: center
+        annotations:
+          summary: "中心服务 1 小时内重启超过 2 次（{{ $labels.instance }}）"
+          description: "进程启动时间在 1 小时内变化了 {{ $value }} 次。查看服务日志中的 panic / fatal 记录，以及 systemd/Windows 服务的事件日志。"
+
+# ============================================================================
+# 数据库（重要缺口：中心没有暴露任何数据库指标）
+# 这里故意不写成 group，因为空 group 的 rules 是 null，虽然 promtool 能过，
+# 但没有任何规则，留着只会让人误以为"数据库这块已经有监控了"。
+# 补齐指标后再新建 igh-database 组并取消下面注释。
+# ============================================================================
+#      # TODO(需补指标)：数据库不可写 / 连接池健康。
+      # 现状：internal/server/database/failover.go 的 Status() 只把
+      # healthy/primary/generation 写进 /health 的 JSON，**没有**注册为
+      # Prometheus 指标，也没有注册 go_sql_stats collector
+      # （已 grep 确认：全仓无 DBStats / MustRegister）。
+      # 因此下面这些规则现在无法写，写出来也是永不触发的死规则。
+      #
+      # 症状旁证：数据库挂了会体现为 5xx 上升，但那是滞后指标，
+      # 而且"数据库只读（被围栏）"这种情况可能连 5xx 都不明显。
+      #
+      # 建议补（优先级最高，见 docs/monitoring.md）：
+      #   igh_db_healthy              Gauge   FailoverPool.healthy
+      #   igh_db_generation           Gauge   切换代际，突变即发生切主
+      #   igh_db_is_primary           Gauge   1=连的是主库
+      #   igh_db_probe_duration_seconds Histogram 探测耗时
+      #   sql_db_open_connections{...} 等     sqlstats.NewDBStatsCollector
+      #
+      # 补完后建议规则：
+      # - alert: IghDatabaseUnwritable
+      #   expr: igh_db_healthy == 0
+      #   for: 2m
+      #   labels:
+      #     severity: critical
+      #   annotations:
+      #     summary: "中心服务连接的数据库不可写"
+      #
+      # - alert: IghDatabaseFailoverHappened
+      #   expr: changes(igh_db_generation[10m]) > 0
+      #   labels:
+      #     severity: warning
+      #   annotations:
+      #     summary: "数据库发生了主备切换"
+      #
+      # - alert: IghDBConnectionPoolSaturated
+      #   expr: sql_db_open_connections / sql_db_max_open_connections > 0.9
+      #   for: 5m
+
+# ============================================================================
+# 业务 / 后台任务（重要缺口）
+# 同上：不建空 group。补齐指标后再新建 igh-background-jobs 组。
+# ============================================================================
+#      # TODO(需补指标)：ERP 推送失败累积。
+      # 现状：ERP 队列在数据库表 erp_sync_queues 里（status: pending/failed/sent，
+      # 见 service/erp.go），有重试上限，但没有任何 Prometheus 指标。
+      # "推送失败写不进库"这种情况代码里已有专门日志（erp.go 中
+      # "标记失败状态也写入失败，该条会重复推送"），但没有计数器，
+      # 无法告警——而这条恰好会导致 ERP 收到重复数据，是业务事故。
+      #
+      # 建议补（在 internal/server/service/erp.go 中加）：
+      #   igh_erp_queue_pending              Gauge   待推送条数
+      #   igh_erp_push_total{target,result}  Counter 推送结果
+      #   igh_erp_queue_failed              Gauge   失败且超过重试上限的条数
+      #
+      # 规则形式：
+      # - alert: IghERPPushFailureAccumulating
+      #   expr: igh_erp_queue_failed > 50
+      #   for: 15m
+      #
+      # TODO(需补指标)：数据归档失败。
+      # 现状：archive.Service.Run() 返回 []Result（含 Err 字段），
+      # 但 runArchiveDaily 只打日志，不产出指标。
+      # 归档失败不会立刻影响业务，却会让磁盘慢慢写满——属于"沉默的定时炸弹"。
+      #
+      # 建议补（在 cmd/server/main.go 的 runArchiveDaily 中加）：
+      #   igh_archive_run_total{table,result}  Counter
+      #   igh_archive_last_success_timestamp  Gauge（按表）
+      #   igh_archive_deleted_rows_total{table} Counter
+      #
+      # 规则形式：
+      # - alert: IghArchiveFailed
+      #   expr: igh_archive_run_total{result="error"} > 0
+      #   for: 5m
+      # - alert: IghArchiveStale
+      #   expr: time() - igh_archive_last_success_timestamp > 26 * 3600
+      #   for: 5m
+      #   # 归档是每天 3 点跑一次，26 小时无成功即说明昨天失败了
+
+      # TODO(需补指标)：活跃告警数（igh_active_alarms 已定义但未写入，
+      # 恒为 0，启用会得到一条永假的"无告警"判断）。补法见 metrics 包注释。

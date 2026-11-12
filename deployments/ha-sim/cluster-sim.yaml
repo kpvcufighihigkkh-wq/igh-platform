@@ -1,0 +1,55 @@
+# 本机双机热备模拟用的集群配置（配合 deployments/ha-sim/docker-compose.yml）。
+#
+# 与 configs/ha/cluster.yaml 的区别只在地址：这里指向本机的 3 个 etcd 容器
+# 与两个 PG 容器端口。生产配置不要用这份文件。
+#
+# 两个节点的数据库端口不同，靠 IGH_DB_PORT 区分：
+#   server-a → 15432（PG 主库）
+#   server-b → 15433（PG 备库）
+# 若都用 5432，两个 hactl 会连同一个库，"一主一备"的前提不成立。
+#
+# 用法：
+#   ./bin/hactl.exe -config deployments/ha-sim/cluster-sim.yaml -node server-a -status
+#   IGH_DB_PORT=15433 ./bin/hactl.exe -config deployments/ha-sim/cluster-sim.yaml -node server-b -status
+
+cluster_token: "igh-ha-sim-local"
+
+lease_ttl_sec: 5
+renew_interval_sec: 1
+leader_key: "/igh/sim/leader"
+
+# 三个 etcd 容器在宿主机上的客户端端口
+nodes:
+  - id: "server-a"
+    addr: "http://127.0.0.1:2379"
+    peer: "http://127.0.0.1:2380"
+    role: "server"
+  - id: "server-b"
+    addr: "http://127.0.0.1:2381"
+    peer: "http://127.0.0.1:2382"
+    role: "server"
+  - id: "witness"
+    addr: "http://127.0.0.1:2383"
+    peer: "http://127.0.0.1:2384"
+    role: "witness"
+
+database:
+  primary_candidate: "127.0.0.1"
+  standby_candidate: "127.0.0.1"
+  # 默认连主库端口；备库节点用 IGH_DB_PORT=15433 覆盖
+  port: 15432
+  database: "igh_platform"
+  user: "igh"
+  replication_user: "replicator"
+  data_dir: "E:\\WorkSpace\\IGH_Dev\\igh-platform\\deployments\\ha-sim\\pgdata"
+  pg_ctl: "pg_ctl"
+
+endpoints:
+  - "http://127.0.0.1:8101"
+  - "http://127.0.0.1:8102"
+
+failover:
+  on_standby_unreachable: "block"
+  promote_after_sec: 3
+  require_lsn_caught_up: true
+  auto_rejoin_as_standby: true

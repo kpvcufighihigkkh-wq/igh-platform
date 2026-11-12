@@ -1,0 +1,159 @@
+# 本机双机热备模拟环境。
+#
+# 目的：在一台开发机上跑通"2 业务节点 + 1 见证节点 + PG 主备"的完整拓扑，
+# 用来验证 hactl 的租约选举、围栏、提升逻辑。
+#
+# 它验证不了什么（必须有言在先）：
+#   - 真实断电、网线拔出、时钟漂移
+#   - 两台机器之间的网络分区
+#   - 磁盘 IO 延迟导致的 LSN 追平差异
+# 这些只能在真机上测。
+#
+# 端口规划（宿主机）：
+#   2379/2381/2383  etcd-1/2/3 的客户端端口
+#   15432           PG 主库
+#   15433           PG 备库
+#
+# 用法：
+#   docker compose -f deployments/ha-sim/docker-compose.yml up -d
+#   docker compose -f deployments/ha-sim/docker-compose.yml down -v
+name: igh-ha-sim
+
+services:
+  etcd-1:
+    image: quay.io/coreos/etcd:v3.5.15
+    container_name: igh-ha-etcd-1
+    command:
+      - etcd
+      - --name=etcd-1
+      - --data-dir=/etcd-data
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd-1:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd-1:2380
+      - --initial-cluster=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
+      - --initial-cluster-token=igh-ha-sim
+      - --initial-cluster-state=new
+    ports:
+      - "2379:2379"
+    volumes:
+      - etcd1:/etcd-data
+    networks:
+      - ha
+    healthcheck:
+      test: ["CMD", "etcdctl", "--endpoints=http://127.0.0.1:2379", "endpoint", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  etcd-2:
+    image: quay.io/coreos/etcd:v3.5.15
+    container_name: igh-ha-etcd-2
+    command:
+      - etcd
+      - --name=etcd-2
+      - --data-dir=/etcd-data
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd-2:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd-2:2380
+      - --initial-cluster=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
+      - --initial-cluster-token=igh-ha-sim
+      - --initial-cluster-state=new
+    ports:
+      - "2381:2379"
+    volumes:
+      - etcd2:/etcd-data
+    networks:
+      - ha
+
+  etcd-3:
+    image: quay.io/coreos/etcd:v3.5.15
+    container_name: igh-ha-etcd-3
+    command:
+      - etcd
+      - --name=etcd-3
+      - --data-dir=/etcd-data
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd-3:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd-3:2380
+      - --initial-cluster=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
+      - --initial-cluster-token=igh-ha-sim
+      - --initial-cluster-state=new
+    ports:
+      - "2383:2379"
+    volumes:
+      - etcd3:/etcd-data
+    networks:
+      - ha
+
+  pg-primary:
+    image: postgres:16-alpine
+    container_name: igh-ha-pg-primary
+    environment:
+      POSTGRES_DB: igh_platform
+      POSTGRES_USER: igh
+      POSTGRES_PASSWORD: igh_dev_2026
+    # 注意：这里**不能**设 synchronous_standby_names / synchronous_commit=remote_apply。
+    #
+    # 原因：官方镜像初始化时会先起一个只监听 localhost 的临时服务，执行
+    # CREATE DATABASE 与 initdb.d 脚本。此时还没有任何备库，而
+    # synchronous_standby_names='*' + remote_apply 会让每个提交无限期等待
+    # 备库确认——初始化直接卡死，库里连 igh_platform 都建不出来。
+    #
+    # 正确做法是备库开始流复制之后再开同步，见 enable-sync.sh。
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - wal_log_hints=on
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - hot_standby=on
+    ports:
+      - "15432:5432"
+    volumes:
+      - pgprimary:/var/lib/postgresql/data
+      - ./init-primary.sh:/docker-entrypoint-initdb.d/01-replication.sh:ro
+    networks:
+      - ha
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U igh -d igh_platform"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  pg-standby:
+    image: postgres:16-alpine
+    container_name: igh-ha-pg-standby
+    environment:
+      POSTGRES_PASSWORD: igh_dev_2026
+      PGPASSWORD: replpass_2026
+    entrypoint: ["/bin/sh", "/standby-entrypoint.sh"]
+    ports:
+      - "15433:5432"
+    volumes:
+      - pgstandby:/var/lib/postgresql/data
+      - ./standby-entrypoint.sh:/standby-entrypoint.sh:ro
+    depends_on:
+      pg-primary:
+        condition: service_healthy
+    networks:
+      - ha
+
+networks:
+  ha:
+    name: igh-ha-net
+    external: true
+
+volumes:
+  etcd1:
+  etcd2:
+  etcd3:
+  pgprimary:
+  pgstandby:

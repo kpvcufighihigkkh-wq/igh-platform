@@ -1,0 +1,34 @@
+[Unit]
+Description=IGH Platform Center Server
+Documentation=https://github.com/kpvcufighihigkkh-wq/igh-platform
+# 数据库和 etcd 通常比本服务先起来；不在这里写 Requires，
+# 因为数据库可能是另一台机器上的主库，本机连不上时也应该继续运行并重试。
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=igh
+Group=igh
+WorkingDirectory=/opt/igh-server
+# --config 指向配置目录；数据库口令从环境变量注入，不写进单元文件
+ExecStart=/opt/igh-server/igh-server --config /opt/igh-server/configs
+Environment=IGH_CONFIG_DIR=/opt/igh-server/configs
+EnvironmentFile=-/etc/igh/server.env
+# 数据库切主/网络抖动期间进程不应退出；退出后 5 秒自动拉起
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+# 安全加固
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/igh-server/logs
+PrivateTmp=true
+
+# 关闭 gin 的调试卷告
+Environment=GIN_MODE=release
+
+[Install]
+WantedBy=multi-user.target
