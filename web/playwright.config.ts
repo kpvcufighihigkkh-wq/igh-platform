@@ -25,7 +25,17 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: { headless: true },
-  projects: [{ name: 'edge', testMatch: /edge-.*\.spec\.ts/ }],
+  projects: [
+    { name: 'edge', testMatch: /edge-.*\.spec\.ts/ },
+    // 管理端：走 Vite + 中心服务。
+    // 与边端分开是因为依赖完全不同——边端要真实二进制，
+    // 管理端要 8101 的中心与 3000 的开发服务器。
+    {
+      name: 'admin',
+      testMatch: /app\.spec\.ts/,
+      use: { baseURL: 'http://localhost:3000' },
+    },
+  ],
   webServer: [
     ...edges.map((e) => ({
       // 用 cwd + 根相对路径，不要写 "../bin/..."：
