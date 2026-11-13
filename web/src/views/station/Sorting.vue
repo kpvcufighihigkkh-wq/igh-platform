@@ -297,7 +297,9 @@ onUnmounted(() => { clearInterval(timer); clearInterval(plcTimer) })
 
 .action-panel { flex:1.4; display:flex; flex-direction:column; min-height:0; }
 
-.grade-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+/* 单行 6 列：两行会吃掉 74px 纵向空间，在 1280x720 的工控屏上
+   足以把缺陷区压成 0 高度，导致缺陷按钮被提交按钮盖住、点不到。 */
+.grade-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:10px; }
 .btn-grade {
   height:72px; border-radius:10px; border:2px solid #30363d; background:#0d1117;
   color:#c9d1d9; font-size:24px; font-weight:600; cursor:pointer;
@@ -306,7 +308,10 @@ onUnmounted(() => { clearInterval(timer); clearInterval(plcTimer) })
 .btn-grade.active { border-color:#1f6feb; background:#0d2a52; color:#79c0ff; }
 .btn-grade:active { transform:translateY(2px); filter:brightness(1.35); }
 
-.defect-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; flex:1; overflow-y:auto; align-content:start; }
+/* min-height 保证缺陷区永远有可点的空间；空间不足时它自己内部滚动，
+   而不是被后面的主按钮挤掉——那会让按钮"消失"或被遮挡。 */
+.defect-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;
+  flex:1; min-height:74px; overflow-y:auto; align-content:start; }
 .btn-defect {
   height:64px; border-radius:10px; border:2px solid #30363d; background:#0d1117;
   color:#c9d1d9; font-size:18px; cursor:pointer;
@@ -317,7 +322,7 @@ onUnmounted(() => { clearInterval(timer); clearInterval(plcTimer) })
 
 /* 主操作：112px 高，戴手套也能稳按 */
 .btn-primary {
-  height:112px; width:100%; margin-top:16px; border-radius:10px; border:none; cursor:pointer;
+  height:112px; width:100%; margin-top:12px; border-radius:10px; border:none; cursor:pointer;
   background:#1f6feb; color:#fff; font-size:28px; font-weight:600;
   transition: transform .06s, filter .06s; flex-shrink:0;
 }

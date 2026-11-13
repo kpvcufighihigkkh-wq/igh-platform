@@ -38,26 +38,28 @@ test.describe('IGH Platform v2', () => {
 
   test('station winding page', async ({ page }) => {
     await page.goto(BASE + '/station/winding')
-    await expect(page.locator('text=卷绕工位')).toBeVisible()
-    await expect(page.locator('text=当前批次')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: '卷绕工位' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '当前批次' })).toBeVisible({ timeout: 5000 })
   })
 
   test('station sorting page', async ({ page }) => {
     await page.goto(BASE + '/station/sorting')
-    await expect(page.locator('text=分拣工位')).toBeVisible()
-    await expect(page.locator('text=录入分拣结果')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: '外检工位' })).toBeVisible()
+    // 判级区是这一版的核心：扫码定位 + 大按钮等级 + 多选缺陷
+    await expect(page.getByRole('heading', { name: '判级' })).toBeVisible({ timeout: 5000 })
+    await expect(page.getByPlaceholder('扫描丝锭标签')).toBeVisible()
   })
 
   test('station packaging page', async ({ page }) => {
     await page.goto(BASE + '/station/packaging')
-    await expect(page.locator('text=包装工位')).toBeVisible()
-    await expect(page.locator('text=订单队列')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: '包装工位' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '当前栈板' })).toBeVisible({ timeout: 5000 })
   })
 
   test('station warehouse page', async ({ page }) => {
     await page.goto(BASE + '/station/warehouse')
-    await expect(page.locator('text=仓库工位')).toBeVisible()
-    await expect(page.locator('text=库位状态')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: '仓库工位' })).toBeVisible()
+    await expect(page.getByText('库位状态')).toBeVisible({ timeout: 5000 })
   })
 
   test('login and admin dashboard', async ({ page }) => {

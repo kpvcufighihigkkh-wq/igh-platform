@@ -8,7 +8,7 @@
       </div>
     </header>
     <ModuleAlert />
-    <n-grid :cols="3" :x-gap="12">
+    <n-grid :cols="3" :x-gap="12" class="station-body">
       <n-gi :span="2">
         <n-card title="库位状态" size="small">
           <template #header-extra>
@@ -220,7 +220,10 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <style scoped>
-.station { height:100vh; background:#0d1117; padding:16px; overflow:auto; }
+.station { height:100vh; background:#0d1117; padding:16px; display:flex; flex-direction:column; overflow:hidden; }
+/* 现场屏幕固定在支架上，整页滚动会让操作区滑出可视范围：
+   内容区撑满剩余高度，需要滚动的是网格和大表格自身。 */
+.station-body { flex:1; min-height:0; }
 .station-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
 .station-header h1 { font-size:18px; color:#00d4ff; margin:0; }
 .header-info { display:flex; align-items:center; gap:12px; }
