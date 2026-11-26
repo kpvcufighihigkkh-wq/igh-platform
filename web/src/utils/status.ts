@@ -1,6 +1,7 @@
 const statusMap: Record<string, string> = {
   active: '活跃', pending: '待处理', in_progress: '进行中', completed: '已完成',
   loaded: '已装载', empty: '空闲', occupied: '占用', reserved: '预留', disabled: '禁用',
+  full: '满车', partial: '部分', packed: '已包装',
   running: '运行中', stopped: '已停机', offline: '离线', online: '在线', unknown: '未检测',
   created: '已创建', acknowledged: '已确认', resolved: '已解决',
   maintenance: '维护中', synced: '已同步', failed: '失败',

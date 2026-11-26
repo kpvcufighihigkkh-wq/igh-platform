@@ -37,7 +37,10 @@ onMounted(async () => {
   ])
   alarms.value = alarmRes.data?.items || []
   stats.value.alarmCount = countRes.data?.count || 0
-  const today = (outputRes.data || [])[0]
+  // days=1 是"最近 24 小时"，跨零点时数组首条可能是昨天。
+  // 按日期精确匹配今天，取不到就保持 0，避免把昨天的产量算进"今日"。
+  const todayStr = new Date().toLocaleDateString('sv-SE')
+  const today = (outputRes.data || []).find((d: any) => (d.date || '').slice(0, 10) === todayStr)
   if (today) { stats.value.doffCount = today.doff_count; stats.value.bobbinCount = today.bobbin_count }
   if (whRes.data?.length) {
     const wh = whRes.data[0]

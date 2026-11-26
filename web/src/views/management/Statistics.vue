@@ -54,18 +54,20 @@ async function loadCharts() {
   ])
 
   // Daily output
+  // 字段名以接口为准：daily-output 返回 {date, doff_count, bobbin_count}，
+  // 早期这里读 `count`，图上永远是空柱——接口有数据、页面没数字，最容易误判成后端坏了。
   if (outputChartRef.value) {
     const data = outputRes.data || []
     const chart = initChart(outputChartRef.value)
     chart.setOption({
       tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: data.map((d: any) => d.date) },
+      xAxis: { type: 'category', data: data.map((d: any) => (d.date || '').slice(5, 10)) },
       yAxis: { type: 'value', name: '丝饼数' },
-      series: [{ type: 'bar', data: data.map((d: any) => d.count), itemStyle: { color: '#63e2b7' } }],
+      series: [{ type: 'bar', data: data.map((d: any) => d.bobbin_count), itemStyle: { color: '#63e2b7' } }],
     })
   }
 
-  // Grade distribution
+  // Grade distribution：接口字段是 grade（不是 final_grade）
   if (gradeChartRef.value) {
     const data = gradeRes.data || []
     const chart = initChart(gradeChartRef.value)
@@ -73,12 +75,12 @@ async function loadCharts() {
       tooltip: { trigger: 'item' },
       series: [{
         type: 'pie', radius: ['40%', '70%'],
-        data: data.map((d: any) => ({ name: d.final_grade || 'N/A', value: d.count })),
+        data: data.map((d: any) => ({ name: d.grade || '未知', value: d.count })),
       }],
     })
   }
 
-  // Today by line
+  // Today by line：接口给的是 bobbin_count
   if (lineChartRef.value) {
     const data = lineRes.data || []
     const chart = initChart(lineChartRef.value)
@@ -86,19 +88,19 @@ async function loadCharts() {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: data.map((d: any) => d.line_code || `Line ${d.line_id}`) },
       yAxis: { type: 'value', name: '丝饼数' },
-      series: [{ type: 'bar', data: data.map((d: any) => d.count), itemStyle: { color: '#70c0e8' } }],
+      series: [{ type: 'bar', data: data.map((d: any) => d.bobbin_count), itemStyle: { color: '#70c0e8' } }],
     })
   }
 
-  // Alarm frequency
+  // Alarm frequency：接口按告警码聚合，字段是 alarm_code（不是 date）
   if (alarmChartRef.value) {
     const data = alarmRes.data || []
     const chart = initChart(alarmChartRef.value)
     chart.setOption({
       tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: data.map((d: any) => d.date) },
+      xAxis: { type: 'category', data: data.map((d: any) => d.alarm_code || '未知') },
       yAxis: { type: 'value', name: '次数' },
-      series: [{ type: 'line', data: data.map((d: any) => d.count), smooth: true, areaStyle: { opacity: 0.3 }, itemStyle: { color: '#e88080' } }],
+      series: [{ type: 'bar', data: data.map((d: any) => d.count), itemStyle: { color: '#e88080' } }],
     })
   }
 }

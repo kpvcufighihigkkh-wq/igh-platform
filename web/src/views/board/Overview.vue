@@ -59,7 +59,10 @@ onMounted(async () => {
     http.get('/warehouses'),
   ])
 
-  const today = (outputRes.data || []).slice(-1)[0]
+  // 「今日」必须按日期精确匹配，不能取数组最后一条：
+  // 停产的周末/节假日最后一条是历史日期，直接取末位会把那天的产量当成今天的显示。
+  const todayStr = new Date().toLocaleDateString('sv-SE')
+  const today = (outputRes.data || []).find((d: any) => (d.date || '').slice(0, 10) === todayStr)
   if (today) { kpis.value[0].value = today.doff_count; kpis.value[1].value = today.bobbin_count }
   kpis.value[2].value = countRes.data?.count || 0
   if (whRes.data?.length) {
