@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -32,6 +33,15 @@ func serveUI(r *gin.Engine, dir string) {
 		return
 	}
 
+	// 启动时自检入口分片是否齐全。
+	//
+	// 出过的问题：configs/ui 是某次构建的旧产物，web/dist 已经重新构建过，
+	// index.html 还在引用旧的分片名，页面点进去白屏，控制台却一条报错都没有
+	// （浏览器按 404 静默失败，Vue 的 onError 收不到）。
+	// 现场只会说"某个页面打不开"，排查要从头翻一遍构建记录。
+	// 这里在启动阶段就把缺失的引用打出来，让人一眼知道是产物没同步。
+	checkUIAssets(dir, indexPath)
+
 	fileServer := http.FileServer(http.Dir(dir))
 
 	r.NoRoute(func(c *gin.Context) {
@@ -55,4 +65,33 @@ func serveUI(r *gin.Engine, dir string) {
 		c.Request.URL.Path = "/"
 		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
+}
+
+// checkUIAssets 校验 index.html 引用的入口资源是否真的存在于 dir 下。
+//
+// 只查入口（<script src> / <link href>），不递归查动态 import 的分片：
+// 分片名是构建期哈希，从源码反查不可靠；入口缺失已经足以说明
+// "ui/ 与 dist/ 不是同一次构建的产物"，这正是要告警的场景。
+func checkUIAssets(dir, indexPath string) {
+	raw, err := os.ReadFile(indexPath)
+	if err != nil {
+		logger.L.Warnw("读取前端入口失败", "path", indexPath, "error", err)
+		return
+	}
+
+	re := regexp.MustCompile(`(?:src|href)="(/[^"]+\.(?:js|css))"`)
+	var missing []string
+	for _, m := range re.FindAllStringSubmatch(string(raw), -1) {
+		ref := m[1]
+		if _, err := os.Stat(filepath.Join(dir, filepath.Clean(ref))); err != nil {
+			missing = append(missing, ref)
+		}
+	}
+	if len(missing) > 0 {
+		logger.L.Errorw("前端产物不完整，页面会白屏",
+			"dir", dir, "missing", missing,
+			"hint", "ui/ 与 web/dist 不是同一次构建：执行 make web-build 重新同步")
+		return
+	}
+	logger.L.Infow("前端产物自检通过", "dir", dir)
 }
