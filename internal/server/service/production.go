@@ -275,7 +275,112 @@ func (s *ProductionService) ListTrolleys(lotID int64, status string, page, pageS
 	}
 	q.Count(&total)
 	err := q.Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&trolleys).Error
-	return trolleys, total, err
+	if err != nil {
+		return trolleys, total, err
+	}
+	if err := s.fillTrolleyRemain(trolleys); err != nil {
+		// 派生失败不该让整页 500：列表本身是有用的，
+		// 只是剩余数暂不可知。返回 0 并记日志，前端会显示成 0 锭。
+		logger.L.Warnw("fill trolley remain failed", "error", err)
+	}
+	return trolleys, total, nil
+}
+
+// fillTrolleyRemain 为一批丝车计算"应载锭数 / 剩余锭数"。
+//
+// 一次性把涉及的丝饼全查出来再在内存里分组，避免每辆车一条 SQL。
+// 判断"还在车上"的依据是 current_position='trolley' 且 position_detail.trolley_id
+// 指向本车——丝饼被外检取走时 position 会变 sorting，被包走时变 pallet，
+// 所以不用额外维护计数器。
+func (s *ProductionService) fillTrolleyRemain(trolleys []model.Trolley) error {
+	if len(trolleys) == 0 {
+		return nil
+	}
+
+	// 收集每辆车承载的落筒 ID
+	doffingsByTrolley := make(map[int64][]int64, len(trolleys))
+	doffSet := make(map[int64]struct{})
+	for _, t := range trolleys {
+		var ids []int64
+		if t.DoffingIDs != "" {
+			if err := json.Unmarshal([]byte(t.DoffingIDs), &ids); err != nil {
+				continue
+			}
+		}
+		doffingsByTrolley[t.ID] = ids
+		for _, id := range ids {
+			doffSet[id] = struct{}{}
+		}
+	}
+	if len(doffSet) == 0 {
+		return nil
+	}
+
+	allDoffings := make([]int64, 0, len(doffSet))
+	for id := range doffSet {
+		allDoffings = append(allDoffings, id)
+	}
+
+	// 应载锭数：各落筒的 bobbin_count 之和
+	type doffRow struct {
+		ID          int64
+		BobbinCount int
+	}
+	var rows []doffRow
+	if err := s.db.Model(&model.Doffing{}).
+		Select("id, bobbin_count").
+		Where("id IN ?", allDoffings).
+		Scan(&rows).Error; err != nil {
+		return err
+	}
+	countByDoffing := make(map[int64]int, len(rows))
+	for _, r := range rows {
+		countByDoffing[r.ID] = r.BobbinCount
+	}
+
+	// 剩余锭数：按落筒查仍在车上的丝饼，再用 position_detail 归到具体车
+	var bobbins []model.Bobbin
+	if err := s.db.Model(&model.Bobbin{}).
+		Select("id, doffing_id, position_detail").
+		Where("doffing_id IN ? AND current_position = ?", allDoffings, "trolley").
+		Find(&bobbins).Error; err != nil {
+		return err
+	}
+	remainByTrolley := make(map[int64]int, len(trolleys))
+	for _, b := range bobbins {
+		var detail struct {
+			TrolleyID int64 `json:"trolley_id"`
+		}
+		if len(b.PositionDetail) > 0 {
+			_ = json.Unmarshal(b.PositionDetail, &detail)
+		}
+		if detail.TrolleyID != 0 {
+			remainByTrolley[detail.TrolleyID]++
+		}
+	}
+
+	for i := range trolleys {
+		t := &trolleys[i]
+		var should int
+		for _, id := range doffingsByTrolley[t.ID] {
+			should += countByDoffing[id]
+		}
+		t.TotalBobbins = should
+		t.RemainBobbins = remainByTrolley[t.ID]
+
+		// 用剩余数覆盖落库时的静态状态：装载时写的 loaded 只代表
+		// "这车曾经装过"，不代表此刻是否还有锭。库里的列保留不动，
+		// 接口层给的是实时状态，前端读到的才是真的。
+		switch {
+		case should > 0 && t.RemainBobbins == 0:
+			t.Status = "empty"
+		case should > 0 && t.RemainBobbins >= should:
+			t.Status = "full"
+		case t.RemainBobbins > 0:
+			t.Status = "partial"
+		}
+	}
+	return nil
 }
 
 // LoadTrolley 装载一车：记录台车，并把锭的位置更新为"在台车上的哪个位置"。
