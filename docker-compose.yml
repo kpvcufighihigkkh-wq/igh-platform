@@ -30,23 +30,5 @@ services:
       - postgres
       - redis
 
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./deployments/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    depends_on:
-      - server
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3001:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: igh2026
-    depends_on:
-      - prometheus
-
 volumes:
   pgdata:

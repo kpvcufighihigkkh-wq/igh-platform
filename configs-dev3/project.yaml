@@ -6,7 +6,6 @@ project:
 
 server:
   http_port: 8101
-  ws_port: 8102
   api_key: "sk-igh-dev-key-change-in-production"
 
 ha:
