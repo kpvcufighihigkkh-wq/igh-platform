@@ -1,0 +1,19 @@
+{
+  // e2e 测试文件与 playwright 配置的独立类型检查。
+  //
+  // 主 tsconfig.json 的 include 只有 src/**，e2e/** 与 playwright.config.ts
+  // 从来不在检查范围内。这意味着测试文件里拼错 fixture 名、把可选属性当必填用，
+  // 只能等到运行时才暴露，而 e2e 跑一次要几分钟。
+  //
+  // 单独一份而不是加进主 tsconfig：主 tsconfig 还会被 vue-tsc 用于
+  // 构建期的 .vue 检查，把 e2e 混进去会让构建也去解析 Node 侧的类型，
+  // 影响面远超"多检查几个文件"。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // 只引 node：@playwright/test 的类型由各文件的 import 直接带入，
+    // 不需要（也无法）写进 types——types 只从 node_modules/@types 下解析。
+    "types": ["node"]
+  },
+  "include": ["e2e/**/*.ts", "playwright.config.ts"],
+  "exclude": ["node_modules"]
+}

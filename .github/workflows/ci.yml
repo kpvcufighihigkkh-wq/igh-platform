@@ -42,29 +42,23 @@ jobs:
           # 与 go.mod 的 `go 1.25.0` 对齐。
           # 这里刻意读 go.mod 而不是写死版本：保证本地能编的版本 CI 也能编。
           go-version-file: go.mod
-          # go.sum 在 .gitignore 里（见下方说明），缓存键退化为 go.mod。
-          # setup-go 在 go.sum 缺失时会自动只用 go.mod，不会报错。
+          # go.sum 已入库，用它锁定依赖版本的校验和。
           cache: true
-          cache-dependency-path: go.mod
+          cache-dependency-path: |
+            go.mod
+            go.sum
 
       # ----------------------------------------------------------------------
-      # 关键坑：本仓库 .gitignore 里有一行 `go.sum`，go.sum 并未入库。
-      # 干净检出后直接 `go build` 会失败：
-      #   missing go.sum entry for module providing package ...
-      # 而且 `go mod download` 也救不回来（它只下载不补全校验和）。
-      # 这里用 `go mod tidy` 生成 go.sum，实测可让后续 build/test 正常通过。
-      #
-      # TODO(建议主人处理)：把 go.sum 从 .gitignore 删掉并入库。
-      #   理由：go.sum 是完整性校验的基础，不入库意味着每次 CI 都在
-      #   重新解析依赖版本，一旦上游打新 tag 就可能拉到不同的代码，
-      #   构建不可复现；同时也失去了对依赖篡改的防护。
-      #   在那之前，本步骤是必需的，且会掩盖 go.mod 与真实依赖的漂移。
+      # go.sum 曾长期被 .gitignore 忽略，干净检出后 `go build` 会直接失败
+      # （missing go.sum entry），且 `go mod download` 也救不回来。
+      # 现已从 .gitignore 移除并入库；这里保留断言，一旦有人又把它删掉，
+      # CI 立刻失败，而不是让构建悄悄退化成"每次重新解析依赖"。
       # ----------------------------------------------------------------------
-      - name: 补齐 go.sum（未入库时的兜底）
+      - name: 校验依赖完整性
         run: |
           if [ ! -f go.sum ]; then
-            echo "::warning file=.gitignore::go.sum 未入库，正在用 go mod tidy 生成（构建不可复现，建议入库）"
-            go mod tidy
+            echo "::error file=.gitignore::go.sum 缺失——它必须入库，否则构建不可复现"
+            exit 1
           fi
           go mod verify
 
@@ -97,13 +91,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-          cache-dependency-path: go.mod
-
-      - name: 补齐 go.sum（未入库时的兜底）
-        run: |
-          if [ ! -f go.sum ]; then
-            go mod tidy
-          fi
+          cache-dependency-path: |
+            go.mod
+            go.sum
 
       # 只跑 internal/...：cmd/ 下是 main 包（一次性组装代码），
       # 少有可测逻辑；integration 测试用 build tag 隔离，不受影响。
@@ -129,13 +119,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-          cache-dependency-path: go.mod
-
-      - name: 补齐 go.sum（未入库时的兜底）
-        run: |
-          if [ ! -f go.sum ]; then
-            go mod tidy
-          fi
+          cache-dependency-path: |
+            go.mod
+            go.sum
 
       # -race 依赖 CGO，而 GOFLAGS 里没有强制关闭；
       # ubuntu runner 自带 gcc，这里显式打开以免未来 GOFLAGS 变化导致静默跳过。
@@ -183,6 +169,12 @@ jobs:
       # 避免将来有人改了 tsconfig 导致 CI 意外生成文件。
       - name: vue-tsc 类型检查
         run: npx vue-tsc --noEmit
+
+      # e2e/ 不在主 tsconfig 的 include 里（那里只有 src/**），
+      # 单独用 tsconfig.e2e.json 校验。测试文件里拼错 fixture、把可选属性
+      # 当必填用，只有到这里才会被发现——否则要等 Playwright 跑完才报。
+      - name: e2e 类型检查
+        run: npx tsc -p tsconfig.e2e.json
 
       - name: vite build
         run: npm run build
@@ -240,14 +232,176 @@ jobs:
           done
 
   # ==========================================================================
-  # 6) 汇总门槛
+  # 6) 边端工位页面 e2e
+  # ==========================================================================
+  # 连的是真实边端二进制（8191~8194），不是 Vite：
+  # 边端前端编在二进制里，由二进制注入工位标记并只注册本工位路由，
+  # 用 Vite 跑测不出"边端只暴露本工位"这条真实约束。
+  #
+  # 必须先在 web/ 里 build 一次：go:embed 会把 internal/edge/app/dist 编进
+  # 二进制，而那份产物是入库的。直接 go build 的话，页面改了但忘了重新
+  # 生成产物时，e2e 会对着**旧页面**全绿——比没有测试更危险。
+  e2e-edge:
+    name: E2E / edge stations
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.mod
+            go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      # 重新生成内嵌产物，保证测的是当前源码而不是库里那份。
+      - name: 构建前端并同步到内嵌目录
+        working-directory: .
+        run: |
+          npm --prefix web run build
+          rm -rf internal/edge/app/dist
+          mkdir -p internal/edge/app/dist
+          cp -r web/dist/* internal/edge/app/dist/
+
+      - name: 构建边端二进制
+        working-directory: .
+        run: go build -o bin/igh-edge-e2e.exe ./cmd/edge
+
+      # 只装 chromium：三个浏览器加起来上百 MB，而工位页面只要求
+      # Chromium 内核（现场也是 Chromium 壳），没必要为跑一次 e2e 下载全套。
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install --with-deps chromium
+
+      # 生成 4 个工位配置到 tmp/。漏掉这步时 Playwright 会报
+      # "配置文件不存在"，信息指向性还不如直接在这一步失败。
+      - name: 生成边端 e2e 配置
+        run: npm run e2e:prepare
+
+      - name: playwright test（edge）
+        env:
+          E2E_TARGET: edge
+        run: npx playwright test --project=edge
+
+      - name: 上传失败现场
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-edge-report
+          path: |
+            web/test-results/
+            web/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ==========================================================================
+  # 7) 管理端 e2e
+  # ==========================================================================
+  # 依赖真实的中心服务 + PostgreSQL：app.spec.ts 断言的是种子数据
+  # （admin/admin123、工位绑定 192.168.1.101），换成 mock 就等于测了个假的。
+  # 中心在空库启动时会自动 Seed（cmd/server/main.go → database.Seed），
+  # 所以不需要额外的初始化步骤。
+  e2e-admin:
+    name: E2E / admin
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: igh
+          POSTGRES_PASSWORD: igh_ci_only
+          POSTGRES_DB: igh_platform
+        ports:
+          - 5432:5432
+        # 没有这个健康检查，服务容器"已启动"而尚未接受连接时
+        # 中心会连库失败并直接退出，表现为一个和数据库毫无关系的报错。
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # 与 configs-dev3/project.yaml 里的 "${DB_PASSWORD}" 对应：
+      # 配置加载器只展开这种整值占位符，写成别的形式不会生效。
+      DB_PASSWORD: igh_ci_only
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.mod
+            go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      # 中心也托管 configs*/ui 下的前端产物，但不影响 e2e：
+      # 测试走的是 Vite（3000），由它把 /api 代理到 8101。
+      - name: 构建中心服务
+        working-directory: .
+        run: go build -o bin/igh-server.exe ./cmd/server
+
+      # 生成中心配置到 tmp/e2e-center。中心没有端口命令行参数，
+      # 端口只从 project.yaml 读；不生成这步时 playwright.config.ts
+      # 指向的目录不存在，中心会读到空配置直接退出。
+      - name: 生成中心 e2e 配置
+        run: npm run e2e:center-config
+
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install --with-deps chromium
+
+      # E2E_CENTER=1 让 Playwright 自己拉起中心（见 playwright.config.ts），
+      # 启动就绪判断和进程回收都由它负责，不在流水线里手写轮询。
+      - name: playwright test（admin）
+        env:
+          E2E_TARGET: admin
+          E2E_CENTER: "1"
+        run: npx playwright test --project=admin
+
+      - name: 上传失败现场
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-admin-report
+          path: |
+            web/test-results/
+            web/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ==========================================================================
+  # 8) 汇总门槛
   # ==========================================================================
   # 分支保护只需要勾这一个 job。否则新增的 job 不会自动纳入必过项，
   # 会出现"CI 有 5 个 job，但分支保护只盯 1 个"的漏洞。
   ci-success:
     name: CI 全部通过
     runs-on: ubuntu-latest
-    needs: [go-build, go-test, go-race, web, prometheus-config]
+    needs: [go-build, go-test, go-race, web, prometheus-config, e2e-edge, e2e-admin]
     if: always()
     steps:
       - name: 检查各 job 结果
@@ -258,6 +412,8 @@ jobs:
             ${{ needs.go-race.result }}
             ${{ needs.web.result }}
             ${{ needs.prometheus-config.result }}
+            ${{ needs.e2e-edge.result }}
+            ${{ needs.e2e-admin.result }}
         run: |
           echo "各 job 结果: $RESULTS"
           # cancelled 也判失败：被取消不等于通过。

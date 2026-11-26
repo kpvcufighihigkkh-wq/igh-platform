@@ -8,6 +8,7 @@
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
     "e2e:prepare": "node e2e/prepare-edges.mjs",
+    "e2e:center-config": "node e2e/prepare-center.mjs",
     "e2e": "npm run e2e:prepare && cd .. && go build -o bin/igh-edge-e2e.exe ./cmd/edge && cd web && playwright test",
     "e2e:edge": "playwright test --project=edge"
   },
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@types/node": "^22.20.5",
     "@vitejs/plugin-vue": "^5.0.0",
     "typescript": "^5.4.0",
     "unplugin-auto-import": "^21.0.0",
