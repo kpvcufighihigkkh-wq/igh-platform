@@ -1,13 +1,46 @@
+/* ============================================================
+   IGH 智能制造平台 — 设计基线
+   视觉语言：机台铭牌 + 控制柜。
+   红色只承载信号（主操作 / 在线 / 告警），结构用石墨灰，
+   工作面用暖白，细线描边、小圆角、表格数字。
+   ============================================================ */
+
 :root {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-card: #0f3460;
-  --color-primary: #00d4ff;
-  --color-success: #00e676;
-  --color-warning: #ffab00;
-  --color-danger: #ff1744;
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0a0;
+  /* 品牌色：取自 IGH S.r.l. 标识 */
+  --igh-red: #e02118;
+  --igh-red-hover: #f03a2f;
+  --igh-red-deep: #b2160f;
+  --igh-red-tint: rgba(224, 33, 24, 0.08);
+  --igh-red-line: rgba(224, 33, 24, 0.28);
+
+  /* 结构色 */
+  --graphite: #25282b;
+  --graphite-soft: #33373b;
+  --steel: #5a5e62;
+  --steel-light: #8a8d8f;
+
+  /* 工作面 */
+  --paper: #f1f0ec;
+  --plate: #ffffff;
+  --plate-soft: #f7f6f2;
+  --line: #d9d6cf;
+  --line-soft: #e6e3dc;
+
+  /* 状态色：与品牌红区分开，避免"告警"和"主操作"混淆 */
+  --ok: #2f7d4f;
+  --ok-tint: rgba(47, 125, 79, 0.1);
+  --warn: #a56a00;
+  --warn-tint: rgba(165, 106, 0, 0.1);
+  --alarm: #b72e24;
+  --info: #2f5c86;
+
+  /* 字体：全部使用系统内置，边端离线环境不能依赖网络字体 */
+  --font-display: 'Bahnschrift SemiCondensed', 'DIN Alternate', 'Roboto Condensed',
+    'Arial Narrow', 'Segoe UI', sans-serif;
+  --font-body: 'Segoe UI', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'Cascadia Mono', 'Consolas', 'SFMono-Regular', monospace;
+
+  --shadow-none: none;
 }
 
 * {
@@ -16,15 +49,66 @@
   box-sizing: border-box;
 }
 
+html,
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 16px;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  background-color: var(--paper);
+  color: var(--graphite);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 #app {
   width: 100vw;
   height: 100vh;
+}
+
+/* 数字统一的表格对齐：计数跳动时列宽不抖 */
+.tabular,
+[data-num] {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--igh-red);
+  color: #fff;
+}
+
+/* 键盘可见焦点：工控现场也常接实体键盘 */
+:focus-visible {
+  outline: 2px solid var(--igh-red);
+  outline-offset: 2px;
+}
+
+/* 细滚动条，避免深色滚动条在浅色工作面里抢眼 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--steel-light) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 0;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--steel-light);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

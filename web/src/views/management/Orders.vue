@@ -1,6 +1,6 @@
 <template>
   <div>
-    <n-card title="订单管理">
+    <n-card>
       <n-tabs type="line" v-model:value="activeTab">
         <n-tab-pane name="picking" tab="拣选订单">
           <n-space justify="space-between" style="margin-bottom: 12px">

@@ -1,12 +1,27 @@
 <template>
   <div>
-    <n-grid :cols="4" :x-gap="12" :y-gap="12">
-      <n-gi><n-statistic label="今日落纱" :value="stats.doffCount" /></n-gi>
-      <n-gi><n-statistic label="今日丝饼" :value="stats.bobbinCount" /></n-gi>
-      <n-gi><n-statistic label="活跃告警" :value="stats.alarmCount"><template #suffix><span style="color:#ff4d4f" v-if="stats.alarmCount>0">!</span></template></n-statistic></n-gi>
-      <n-gi><n-statistic label="仓库占用率" :value="stats.whUsage + '%'" /></n-gi>
-    </n-grid>
-    <n-card title="最近告警" size="small" style="margin-top:16px">
+    <!-- 计数牌：与生产看板同一套读数样式，横向排列、数字用窄体 -->
+    <section class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-label">今日落纱</span>
+        <span class="kpi-value">{{ stats.doffCount }}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">今日丝饼</span>
+        <span class="kpi-value">{{ stats.bobbinCount }}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">活跃告警</span>
+        <span class="kpi-value" :class="{ alarm: stats.alarmCount > 0 }">{{ stats.alarmCount }}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">仓库占用率</span>
+        <span class="kpi-value">{{ stats.whUsage }}%</span>
+      </div>
+    </section>
+
+    <n-card size="small" class="alarm-card">
+      <template #header><span class="panel-title">最近告警</span></template>
       <n-data-table :columns="alarmCols" :data="alarms" :bordered="false" size="small" :max-height="200" />
     </n-card>
   </div>
@@ -51,3 +66,49 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--plate);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 22px;
+  position: relative;
+}
+.kpi + .kpi::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 1px;
+  background: var(--line-soft);
+}
+.kpi-label { font-size: 13px; color: var(--steel); }
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--graphite);
+}
+.kpi-value.alarm { color: var(--alarm); }
+.alarm-card { margin-top: 16px; }
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--steel);
+}
+@media (max-width: 900px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+}
+</style>

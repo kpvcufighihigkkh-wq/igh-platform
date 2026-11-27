@@ -1,11 +1,9 @@
 <template>
-  <n-card title="异常管理">
-    <template #header-extra>
-      <n-space>
-        <n-select v-model:value="filterStatus" :options="statusOptions" style="width: 120px" clearable placeholder="状态" />
-        <n-select v-model:value="filterLevel" :options="levelOptions" style="width: 120px" clearable placeholder="级别" />
-      </n-space>
-    </template>
+  <n-card>
+    <n-space style="margin-bottom: 12px">
+      <n-select v-model:value="filterStatus" :options="statusOptions" style="width: 120px" clearable placeholder="状态" />
+      <n-select v-model:value="filterLevel" :options="levelOptions" style="width: 120px" clearable placeholder="级别" />
+    </n-space>
     <n-data-table :columns="columns" :data="alarms" :bordered="false" :loading="loading" />
     <n-pagination
       v-model:page="page"

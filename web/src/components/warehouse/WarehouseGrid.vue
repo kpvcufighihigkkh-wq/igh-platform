@@ -203,50 +203,52 @@ function onDragStart(e: MouseEvent) {
 </script>
 
 <style scoped>
-.warehouse-3d { border-radius: 8px; padding: 16px; position: relative; }
+.warehouse-3d { border-radius: 2px; padding: 16px; position: relative; }
 
 .iso-toolbar {
   display: flex; align-items: center; gap: 6px; margin-bottom: 8px; user-select: none;
 }
 .iso-btn {
-  width: 28px; height: 28px; border-radius: 4px; border: 1px solid #30363d;
-  background: #161b22; color: #c9d1d9; font-size: 16px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; transition: border-color .15s;
+  width: 28px; height: 28px; border-radius: 2px; border: 1px solid var(--line);
+  background: var(--plate); color: var(--graphite); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: border-color .15s, color .15s;
 }
-.iso-btn:hover { border-color: #58a6ff; color: #58a6ff; }
-.zoom-pct { font-size: 12px; color: #8b949e; font-family: monospace; min-width: 40px; text-align: center; }
+.iso-btn:hover { border-color: var(--igh-red); color: var(--igh-red); }
+.zoom-pct { font-size: 12px; color: var(--steel); font-family: var(--font-mono); min-width: 40px; text-align: center; }
 
 .iso-viewport { overflow: hidden; cursor: grab; max-height: 520px; }
 .iso-viewport:active { cursor: grabbing; }
 .iso-svg { width: 100%; max-height: 520px; display: block; }
 
-.floor { fill: none; stroke: #30363d; stroke-width: 0.8; stroke-dasharray: 3,2; }
-.layer-label { fill: #8b949e; font-size: 10px; font-family: monospace; }
+.floor { fill: none; stroke: var(--line); stroke-width: 0.8; stroke-dasharray: 3,2; }
+.layer-label { fill: var(--steel-light); font-size: 10px; font-family: var(--font-mono); }
 
-.tf { stroke: #2d333b; stroke-width: 0.5; cursor: pointer; transition: opacity 0.15s; }
-.tf:hover { opacity: 0.7; stroke: #58a6ff; stroke-width: 1; }
-.tf.st-empty    { fill: #1e293b; }
-.tf.st-occupied { fill: #22d3ee; }
-.tf.st-reserved { fill: #fbbf24; }
-.tf.st-disabled { fill: #374151; }
+/* 库位三态用同一套语义色：空闲=白、占用=品牌红、预留=琥珀、禁用=灰。
+   侧面用同色加深做出等轴测的体块感，正面最浅、顶面最亮。 */
+.tf { stroke: var(--line); stroke-width: 0.5; cursor: pointer; transition: opacity 0.15s; }
+.tf:hover { opacity: 0.75; stroke: var(--graphite); stroke-width: 1; }
+.tf.st-empty    { fill: #ffffff; }
+.tf.st-occupied { fill: #e02118; }
+.tf.st-reserved { fill: #c98a2e; }
+.tf.st-disabled { fill: #d9d6cf; }
 
-.ff { stroke: #1a2030; stroke-width: 0.3; }
-.ff.st-empty    { fill: #0f172a; }
-.ff.st-occupied { fill: #0891b2; }
-.ff.st-reserved { fill: #d97706; }
-.ff.st-disabled { fill: #1f2937; }
+.ff { stroke: #c4c0b8; stroke-width: 0.3; }
+.ff.st-empty    { fill: #f3f2ee; }
+.ff.st-occupied { fill: #b2160f; }
+.ff.st-reserved { fill: #9a6a1f; }
+.ff.st-disabled { fill: #c9c5bd; }
 
-.rf { stroke: #1a2030; stroke-width: 0.3; }
-.rf.st-empty    { fill: #0c1322; }
-.rf.st-occupied { fill: #0e7490; }
-.rf.st-reserved { fill: #b45309; }
-.rf.st-disabled { fill: #111827; }
+.rf { stroke: #c4c0b8; stroke-width: 0.3; }
+.rf.st-empty    { fill: #e6e3dc; }
+.rf.st-occupied { fill: #8f110c; }
+.rf.st-reserved { fill: #7d5518; }
+.rf.st-disabled { fill: #b9b5ac; }
 
-.legend { display: flex; gap: 16px; margin-top: 12px; font-size: 13px; color: #8b949e; }
+.legend { display: flex; gap: 16px; margin-top: 12px; font-size: 13px; color: var(--steel); }
 .leg { display: flex; align-items: center; gap: 4px; }
-.ld { width: 12px; height: 12px; border-radius: 2px; }
-.ld-empty    { background: #1e293b; border: 1px solid #2d333b; }
-.ld-occupied { background: #22d3ee; }
-.ld-reserved { background: #fbbf24; }
-.ld-disabled { background: #374151; }
+.ld { width: 12px; height: 12px; border-radius: 1px; }
+.ld-empty    { background: #ffffff; border: 1px solid var(--line); }
+.ld-occupied { background: #e02118; }
+.ld-reserved { background: #c98a2e; }
+.ld-disabled { background: #d9d6cf; }
 </style>

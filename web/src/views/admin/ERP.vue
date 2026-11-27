@@ -1,21 +1,25 @@
 <template>
   <div>
-    <n-grid :cols="3" :x-gap="12" style="margin-bottom:16px">
-      <n-gi>
-        <n-statistic label="队列总数" :value="stats.total" />
-      </n-gi>
-      <n-gi>
-        <n-statistic label="待处理" :value="stats.pending" />
-      </n-gi>
-      <n-gi>
-        <n-statistic label="失败" :value="stats.failed">
-          <template #suffix>
-            <n-button v-if="stats.failed > 0" size="tiny" type="warning" @click="retry" style="margin-left:8px">重试失败</n-button>
-          </template>
-        </n-statistic>
-      </n-gi>
-    </n-grid>
-    <n-data-table :columns="cols" :data="queue" :bordered="false" size="small" />
+    <section class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-label">队列总数</span>
+        <span class="kpi-value">{{ stats.total }}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">待处理</span>
+        <span class="kpi-value">{{ stats.pending }}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">失败</span>
+        <span class="kpi-value" :class="{ alarm: stats.failed > 0 }">{{ stats.failed }}</span>
+        <n-button v-if="stats.failed > 0" size="tiny" type="warning" class="retry" @click="retry">重试失败</n-button>
+      </div>
+    </section>
+
+    <n-card size="small" class="queue-card">
+      <template #header><span class="panel-title">同步队列</span></template>
+      <n-data-table :columns="cols" :data="queue" :bordered="false" size="small" />
+    </n-card>
   </div>
 </template>
 
@@ -55,3 +59,47 @@ async function retry() {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--plate);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 22px;
+  position: relative;
+}
+.kpi + .kpi::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 1px;
+  background: var(--line-soft);
+}
+.kpi-label { font-size: 13px; color: var(--steel); }
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--graphite);
+}
+.kpi-value.alarm { color: var(--alarm); }
+.retry { align-self: flex-start; }
+.queue-card { margin-top: 16px; }
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--steel);
+}
+</style>

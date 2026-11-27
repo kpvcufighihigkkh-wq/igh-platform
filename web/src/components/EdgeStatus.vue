@@ -32,15 +32,16 @@ onUnmounted(() => {
   gap: 6px;
   font-size: 12px;
   padding: 2px 10px;
-  border-radius: 12px;
-  background: var(--n-color-embedded, #f5f5f5);
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: var(--plate);
 }
 .edge-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
 }
-.edge-dot.online { background: #18a058; }
-.edge-dot.offline { background: #d03050; }
-.edge-text { color: #666; }
+.edge-dot.online { background: var(--ok); }
+.edge-dot.offline { background: var(--alarm); }
+.edge-text { color: var(--steel); }
 </style>

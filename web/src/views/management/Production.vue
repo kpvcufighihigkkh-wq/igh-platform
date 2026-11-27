@@ -1,6 +1,6 @@
 <template>
   <div>
-    <n-card title="生产管理">
+    <n-card>
       <n-tabs type="line" v-model:value="activeTab">
         <n-tab-pane name="lots" tab="批次管理">
           <n-space justify="space-between" style="margin-bottom: 12px">
@@ -24,7 +24,7 @@
 
         <n-tab-pane name="monitor" tab="产线监控">
           <n-space style="margin-bottom: 12px" align="center">
-            <span style="font-size: 13px; color: #8b949e">选择产线:</span>
+            <span style="font-size: 13px; color: var(--steel)">选择产线:</span>
             <n-select v-model:value="monitorLine" :options="windingLineOpts" style="width: 180px" @update:value="fetchWinderStatus" />
             <n-button size="small" @click="fetchWinderStatus" :loading="monitorLoading">刷新</n-button>
           </n-space>
@@ -40,7 +40,7 @@
                 <span class="lot-spec">{{ w.active_lot_spec }}</span>
               </div>
               <div class="winder-lot" v-else>
-                <span style="color: #8b949e; font-size: 12px">暂无生产</span>
+                <span style="color: var(--steel); font-size: 12px">暂无生产</span>
               </div>
               <div class="winder-stats">
                 <div><span class="stat-num">{{ w.today_doff_count }}</span><span class="stat-lbl">落纱</span></div>
@@ -491,21 +491,21 @@ onMounted(() => { fetchLots(); fetchBatchSource(); fetchProductTypes() })
   gap: 12px;
 }
 .winder-card {
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 8px;
+  background: var(--plate);
+  border: 1px solid var(--line);
+  border-radius: 2px;
   padding: 14px;
   cursor: pointer;
   transition: border-color 0.2s;
 }
-.winder-card:hover, .winder-card.selected { border-color: #22d3ee; }
+.winder-card:hover, .winder-card.selected { border-color: var(--igh-red); }
 .winder-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.winder-name { font-weight: 600; font-size: 14px; }
-.winder-lot { font-size: 12px; color: #c9d1d9; margin-bottom: 8px; }
-.lot-label { color: #8b949e; }
-.lot-spec { color: #8b949e; margin-left: 8px; }
+.winder-name { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+.winder-lot { font-size: 12px; color: var(--graphite); margin-bottom: 8px; }
+.lot-label { color: var(--steel); }
+.lot-spec { color: var(--steel); margin-left: 8px; }
 .winder-stats { display: flex; gap: 20px; margin-bottom: 6px; }
-.stat-num { font-size: 22px; font-weight: bold; color: #63e2b7; }
-.stat-lbl { font-size: 11px; color: #8b949e; margin-left: 4px; }
-.winder-time { font-size: 11px; color: #8b949e; }
+.stat-num { font-family: var(--font-display); font-size: 24px; font-weight: 600; color: var(--graphite); font-variant-numeric: tabular-nums; }
+.stat-lbl { font-size: 11px; color: var(--steel); margin-left: 4px; }
+.winder-time { font-size: 11px; color: var(--steel-light); }
 </style>

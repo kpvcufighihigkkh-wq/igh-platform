@@ -1,13 +1,36 @@
 <template>
   <div class="board">
-    <header class="board-header"><h1>仓库实时状态</h1><span class="time">{{ clock }}</span></header>
+    <header class="board-header">
+      <div class="brand">
+        <span class="title-bar" aria-hidden="true"></span>
+        <h1>仓库实时状态</h1>
+      </div>
+      <span class="time">{{ clock }}</span>
+    </header>
+
     <div class="wh-tabs">
-      <button v-for="w in warehouses" :key="w.id" class="wh-tab" :class="{active: selectedId === w.id}" @click="selectWarehouse(w)">{{ w.name }}</button>
+      <button
+        v-for="w in warehouses"
+        :key="w.id"
+        class="wh-tab"
+        :class="{ active: selectedId === w.id }"
+        @click="selectWarehouse(w)"
+      >
+        {{ w.name }}
+      </button>
     </div>
+
     <template v-if="warehouse">
       <div class="wh-info">
-        <span>{{ warehouse.name }} ({{ warehouse.rows }}行 × {{ warehouse.cols }}列 × {{ warehouse.layers }}层)</span>
-        <span class="stat">空闲: <b style="color:#63e2b7">{{ stats.empty || 0 }}</b> | 占用: <b style="color:#e88080">{{ stats.occupied || 0 }}</b> | 预留: <b style="color:#f2c97d">{{ stats.reserved || 0 }}</b> | 占用率: <b>{{ usage }}%</b></span>
+        <span class="wh-spec">
+          {{ warehouse.name }}（{{ warehouse.rows }} 行 × {{ warehouse.cols }} 列 × {{ warehouse.layers }} 层）
+        </span>
+        <span class="stat">
+          <span class="stat-item"><span class="lbl">空闲</span><b class="ok">{{ stats.empty || 0 }}</b></span>
+          <span class="stat-item"><span class="lbl">占用</span><b class="alarm">{{ stats.occupied || 0 }}</b></span>
+          <span class="stat-item"><span class="lbl">预留</span><b class="warn">{{ stats.reserved || 0 }}</b></span>
+          <span class="stat-item"><span class="lbl">占用率</span><b>{{ usage }}%</b></span>
+        </span>
       </div>
       <WarehouseGrid
         :rows="warehouse.rows"
@@ -71,14 +94,109 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <style scoped>
-.board { height:100vh; background:#0d1117; padding:16px; overflow:auto; }
-.board-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-.board-header h1 { font-size:20px; color:#00d4ff; margin:0; }
-.time { font-size:16px; color:#8b949e; font-family:monospace; }
-.wh-tabs { display:flex; gap:8px; margin-bottom:12px; }
-.wh-tab { background:#161b22; border:1px solid #30363d; color:#c9d1d9; padding:6px 16px; border-radius:6px; cursor:pointer; font-size:13px; transition:all .2s; }
-.wh-tab:hover { border-color:#58a6ff; }
-.wh-tab.active { background:#1f6feb; border-color:#1f6feb; color:#fff; }
-.wh-info { display:flex; justify-content:space-between; margin-bottom:12px; font-size:14px; color:#c9d1d9; }
-.stat b { font-size:16px; }
+.board {
+  height: 100vh;
+  padding: 16px;
+  background: var(--paper);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--graphite);
+  flex-shrink: 0;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.title-bar {
+  width: 4px;
+  height: 22px;
+  background: var(--igh-red);
+}
+.brand h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--graphite);
+}
+.time {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--graphite);
+}
+
+.wh-tabs {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.wh-tab {
+  background: var(--plate);
+  border: 1px solid var(--line);
+  color: var(--steel);
+  padding: 7px 18px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.wh-tab:hover {
+  border-color: var(--steel-light);
+  color: var(--graphite);
+}
+.wh-tab.active {
+  background: var(--graphite);
+  border-color: var(--graphite);
+  color: #fff;
+}
+
+.wh-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 14px;
+  background: var(--plate);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-size: 14px;
+  color: var(--graphite);
+  flex-shrink: 0;
+}
+.wh-spec {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+}
+.stat {
+  display: flex;
+  gap: 22px;
+}
+.stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.stat-item .lbl {
+  font-size: 12px;
+  color: var(--steel);
+}
+.stat b {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.stat .ok { color: var(--ok); }
+.stat .alarm { color: var(--alarm); }
+.stat .warn { color: var(--warn); }
 </style>

@@ -544,28 +544,28 @@ async function save() {
 <style scoped>
 .site-config { display: flex; gap: 16px; min-height: calc(100vh - 120px); }
 .node-list {
-  width: 220px; flex-shrink: 0; background: #161b22; border-radius: 8px;
-  border: 1px solid #30363d; padding: 12px;
+  width: 220px; flex-shrink: 0; background: var(--plate); border-radius: 2px;
+  border: 1px solid var(--line); padding: 12px;
 }
-.list-title { font-size: 12px; color: #8b949e; font-weight: 600; margin-bottom: 8px; }
+.list-title { font-size: 12px; color: var(--steel); font-weight: 600; margin-bottom: 8px; }
 .node-item {
-  padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px;
-  border: 1px solid transparent; transition: all 0.15s;
+  padding: 8px 10px; border-radius: 2px; cursor: pointer; margin-bottom: 4px;
+  border: 1px solid transparent; transition: background 0.15s, border-color 0.15s;
 }
-.node-item:hover { background: #1c2333; }
-.node-item.active { background: #1f6feb; }
+.node-item:hover { background: var(--plate-soft); }
+.node-item.active { background: var(--igh-red-tint); border-color: var(--igh-red-line); box-shadow: inset 3px 0 0 var(--igh-red); }
 .node-item.active .node-name,
-.node-item.active .node-meta { color: #fff; }
-.node-name { font-size: 13px; color: #c9d1d9; }
-.node-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #8b949e; margin-top: 2px; }
+.node-item.active .node-meta { color: var(--igh-red); }
+.node-name { font-size: 13px; color: var(--graphite); }
+.node-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--steel); margin-top: 2px; }
 .editor { flex: 1; min-width: 0; }
 
 .device-list { display: flex; flex-direction: column; gap: 10px; }
-.device-card { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+.device-card { background: var(--plate); border: 1px solid var(--line); border-radius: 2px; padding: 12px; margin-bottom: 10px; }
 .device-head { display: flex; justify-content: space-between; align-items: center; }
-.device-code { font-weight: 600; font-size: 13px; }
-.device-host { color: #8b949e; font-size: 12px; }
-.hint { color: #8b949e; font-size: 12px; }
+.device-code { font-family: var(--font-mono); font-weight: 600; font-size: 13px; }
+.device-host { color: var(--steel); font-size: 12px; }
+.hint { color: var(--steel); font-size: 12px; }
 .problems { margin: 6px 0 0 18px; padding: 0; }
 .problems li { font-size: 12px; line-height: 1.7; }
 </style>

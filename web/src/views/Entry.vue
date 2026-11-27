@@ -1,5 +1,5 @@
 <template>
-  <div style="height:100vh;display:flex;align-items:center;justify-content:center;background:#1a1a2e">
+  <div style="height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper)">
     <n-spin size="large" />
   </div>
 </template>

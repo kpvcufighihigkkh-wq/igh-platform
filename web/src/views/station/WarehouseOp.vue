@@ -1,7 +1,13 @@
 <template>
   <div class="station">
     <header class="station-header">
-      <h1>仓库工位</h1>
+      <div class="nameplate">
+        <span class="nameplate-bar" aria-hidden="true"></span>
+        <div class="nameplate-text">
+          <h1>仓库工位</h1>
+          <span class="nameplate-sub">WAREHOUSE · 仓储区域</span>
+        </div>
+      </div>
       <div class="header-info">
         <span class="user" v-if="isLoggedIn()">{{ userName }} <n-button text size="tiny" @click="logout">退出</n-button></span>
         <span class="clock">{{ clock }}</span>
@@ -220,13 +226,23 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <style scoped>
-.station { height:100vh; background:#0d1117; padding:16px; display:flex; flex-direction:column; overflow:hidden; }
+.station { height:100vh; background:var(--paper); padding:16px; display:flex; flex-direction:column; overflow:hidden; }
 /* 现场屏幕固定在支架上，整页滚动会让操作区滑出可视范围：
    内容区撑满剩余高度，需要滚动的是网格和大表格自身。 */
 .station-body { flex:1; min-height:0; }
+
 .station-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-.station-header h1 { font-size:18px; color:#00d4ff; margin:0; }
-.header-info { display:flex; align-items:center; gap:12px; }
-.clock { font-family:monospace; color:#8b949e; }
-.user { font-size:12px; color:#63e2b7; }
+.nameplate { display:flex; align-items:stretch; gap:12px; background:var(--plate); border:1px solid var(--line); border-radius:2px; padding:10px 18px 10px 14px; }
+.nameplate-bar { width:4px; background:var(--igh-red); }
+.nameplate-text { display:flex; flex-direction:column; gap:2px; }
+.nameplate h1 { margin:0; font-family:var(--font-display); font-size:22px; font-weight:600; line-height:1.15; letter-spacing:.02em; color:var(--graphite); }
+.nameplate-sub { font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; color:var(--steel-light); }
+
+.header-info { display:flex; align-items:center; gap:14px; }
+.clock { font-family:var(--font-mono); font-size:20px; font-variant-numeric:tabular-nums; color:var(--graphite); }
+.user { font-size:12px; color:var(--ok); }
+
+/* 卡片标题沿用全站的"细线分隔"规则 */
+:deep(.n-card-header) { border-bottom:1px solid var(--line-soft); }
+:deep(.n-card-header__main) { font-family:var(--font-display); font-size:15px; font-weight:600; }
 </style>

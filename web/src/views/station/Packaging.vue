@@ -1,7 +1,13 @@
 <template>
   <div class="station">
     <header class="station-header">
-      <h1>包装工位</h1>
+      <div class="nameplate">
+        <span class="nameplate-bar" aria-hidden="true"></span>
+        <div class="nameplate-text">
+          <h1>包装工位</h1>
+          <span class="nameplate-sub">PACKAGING · 包装区域</span>
+        </div>
+      </div>
       <div class="header-info">
         <n-tag :type="online ? 'success' : 'error'" size="large" round>
           {{ online ? '在线' : `离线 · 待同步 ${queueDepth} 条` }}
@@ -320,41 +326,47 @@ onUnmounted(() => { clearInterval(timer); clearInterval(plcTimer) })
 </script>
 
 <style scoped>
-.station { height:100vh; background:#0d1117; padding:16px; display:flex; flex-direction:column; overflow:hidden; }
+.station { height:100vh; background:var(--paper); padding:16px; display:flex; flex-direction:column; overflow:hidden; }
 .station-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-shrink:0; }
-.station-header h1 { font-size:22px; color:#00d4ff; margin:0; }
+.nameplate { display:flex; align-items:stretch; gap:12px; background:var(--plate); border:1px solid var(--line); border-radius:2px; padding:10px 18px 10px 14px; }
+.nameplate-bar { width:4px; background:var(--igh-red); }
+.nameplate-text { display:flex; flex-direction:column; gap:2px; }
+.nameplate h1 { margin:0; font-family:var(--font-display); font-size:22px; font-weight:600; line-height:1.15; letter-spacing:.02em; color:var(--graphite); }
+.nameplate-sub { font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; color:var(--steel-light); }
 .header-info { display:flex; align-items:center; gap:16px; }
-.clock { font-family:monospace; color:#8b949e; font-size:20px; }
+.clock { font-family:var(--font-mono); font-size:22px; font-variant-numeric:tabular-nums; color:var(--graphite); }
 
 .body { flex:1; display:flex; flex-direction:column; gap:12px; min-height:0; transition:filter .2s; }
-.body.dim { filter:grayscale(.75); }
+.body.dim { filter:grayscale(.8); }
 
 .row { display:flex; gap:12px; }
 .row.grow { flex:1; min-height:0; }
 
-.panel { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
-.panel h2 { margin:0 0 12px; font-size:16px; color:#8b949e; font-weight:500; }
-.layout-tag { font-size:13px; color:#6e7681; margin-left:8px; }
+.panel { background:var(--plate); border:1px solid var(--line); border-radius:2px; padding:16px; }
+.panel h2 { margin:0 0 12px; padding-bottom:8px; border-bottom:1px solid var(--line-soft); font-size:13px; font-weight:600; letter-spacing:.04em; color:var(--steel); }
+.layout-tag { margin-left:8px; font-family:var(--font-mono); font-size:12px; font-weight:400; color:var(--steel-light); }
 
 .grid-panel { flex:1.6; display:flex; flex-direction:column; min-height:0; }
-.progress-line { font-size:18px; color:#c9d1d9; margin-bottom:16px; }
-.cell-hint { color:#00d4ff; }
-.big { font-size:38px; font-weight:700; color:#e6edf3; font-variant-numeric:tabular-nums; }
+.progress-line { margin-bottom:16px; font-size:17px; color:var(--graphite); }
+.cell-hint { color:var(--igh-red); font-weight:600; }
+.big { font-family:var(--font-display); font-size:38px; font-weight:600; color:var(--graphite); font-variant-numeric:tabular-nums; }
 
 .layers { flex:1; display:flex; flex-direction:column; gap:10px; justify-content:center; overflow-y:auto; }
 .layer { display:flex; align-items:center; gap:12px; }
-.layer-label { width:36px; font-family:monospace; font-size:14px; color:#6e7681; text-align:right; }
+.layer-label { width:36px; font-family:var(--font-mono); font-size:13px; color:var(--steel-light); text-align:right; }
 .cells { display:flex; gap:8px; flex-wrap:wrap; }
 
 /* 格子比进度条有用：它回答"下一个装哪" */
 .cell {
-  width:64px; height:64px; border-radius:6px;
-  border:2px solid #30363d; background:#0d1117;
+  width:64px; height:64px; border-radius:2px;
+  border:2px solid var(--line); background:var(--plate);
   transition:background .2s, border-color .2s, transform .2s;
 }
-.cell.filled { background:#1f6feb33; border-color:#1f6feb; }
+/* 已装：石墨实心块，远距离一眼能数 */
+.cell.filled { background:var(--graphite); border-color:var(--graphite); }
+/* 当前位：品牌红闪烁，是"下一步动作"的唯一提示 */
 .cell.current {
-  background:#f0b429; border-color:#f0b429;
+  background:var(--igh-red); border-color:var(--igh-red);
   animation:pulse 1.2s ease-in-out infinite;
 }
 @keyframes pulse {
@@ -364,24 +376,25 @@ onUnmounted(() => { clearInterval(timer); clearInterval(plcTimer) })
 
 .side-panel { flex:1; display:flex; flex-direction:column; min-height:0; }
 .order-progress { margin-bottom:12px; }
-.kv { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #21262d; font-size:18px; color:#c9d1d9; }
-.plc-count { font-size:44px; font-weight:700; color:#00d4ff; font-variant-numeric:tabular-nums; margin-bottom:16px; }
-.plc-count.warn { font-size:20px; color:#f0b429; }
+.kv { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:17px; color:var(--graphite); }
+.plc-count { margin-bottom:16px; font-family:var(--font-display); font-size:44px; font-weight:600; color:var(--graphite); font-variant-numeric:tabular-nums; }
+.plc-count.warn { font-size:19px; color:var(--warn); }
 
 /* 主操作：112px 高，戴手套也能稳按 */
 .btn-primary {
-  height:112px; width:100%; margin-top:auto; border-radius:10px; border:none; cursor:pointer;
-  background:#1f6feb; color:#fff; font-size:28px; font-weight:600;
-  transition: transform .06s, filter .06s;
+  height:112px; width:100%; margin-top:auto; border-radius:2px; border:none; cursor:pointer;
+  background:var(--igh-red); color:#fff; font-size:28px; font-weight:600;
+  transition: transform .06s, background .15s;
 }
-.btn-primary:active:not(:disabled) { transform:translateY(2px); filter:brightness(1.35); }
-.btn-primary:disabled { background:#30363d; color:#6e7681; cursor:not-allowed; }
+.btn-primary:hover:not(:disabled) { background:var(--igh-red-hover); }
+.btn-primary:active:not(:disabled) { transform:translateY(2px); background:var(--igh-red-deep); }
+.btn-primary:disabled { background:var(--line); color:var(--steel-light); cursor:not-allowed; }
 
 .list-panel { flex:0 0 180px; display:flex; flex-direction:column; min-height:0; }
 .list { flex:1; overflow-y:auto; }
-.list-item { display:flex; gap:20px; align-items:center; padding:8px; border-bottom:1px solid #21262d;
-  font-size:16px; color:#c9d1d9; }
-.mono { font-family:monospace; }
-.muted { color:#6e7681; font-size:15px; }
-.empty-hint { color:#6e7681; font-size:16px; padding:12px 0; }
+.list-item { display:flex; gap:20px; align-items:center; padding:8px; border-bottom:1px solid var(--line-soft);
+  font-size:16px; color:var(--graphite); }
+.mono { font-family:var(--font-mono); }
+.muted { color:var(--steel-light); font-size:14px; }
+.empty-hint { padding:12px 0; font-size:15px; color:var(--steel-light); }
 </style>

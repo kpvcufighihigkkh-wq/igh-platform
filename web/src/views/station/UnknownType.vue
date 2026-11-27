@@ -26,7 +26,7 @@ const description = edgeType
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1a1a2e;
+  background: var(--paper);
   padding: 24px;
 }
 </style>

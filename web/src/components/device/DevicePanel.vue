@@ -41,15 +41,15 @@ watch(lastMessage, (msg) => {
 
 <style scoped>
 .device-panel { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-.device-card { background: var(--bg-card); border-radius: 8px; padding: 12px; }
+.device-card { background: var(--plate); border: 1px solid var(--line); border-radius: 2px; padding: 12px; }
 .device-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 500; }
 .device-name { font-size: 14px; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; }
-.online { background: var(--color-success); }
-.offline { background: var(--color-danger); }
+.online { background: var(--ok); }
+.offline { background: var(--alarm); }
 .plc-list { display: flex; flex-direction: column; gap: 4px; }
-.plc-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.plc-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--steel); }
 .plc-dot { width: 6px; height: 6px; border-radius: 50%; }
 .plc-code { flex: 1; }
-.plc-latency { font-family: monospace; }
+.plc-latency { font-family: var(--font-mono); }
 </style>

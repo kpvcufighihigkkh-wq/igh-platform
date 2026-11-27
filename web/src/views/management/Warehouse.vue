@@ -1,23 +1,21 @@
 <template>
   <div>
-    <n-card title="仓库管理">
-      <template #header-extra>
+    <n-card>
+      <n-space justify="space-between" align="center" style="margin-bottom: 16px">
+        <n-space v-if="currentWarehouse">
+          <n-tag type="info">{{ currentWarehouse.type }}</n-tag>
+          <n-tag>{{ currentWarehouse.rows }}行 × {{ currentWarehouse.cols }}列 × {{ currentWarehouse.layers }}层</n-tag>
+          <n-tag type="success">空闲: {{ slotStats.empty || 0 }}</n-tag>
+          <n-tag type="warning">占用: {{ slotStats.occupied || 0 }}</n-tag>
+        </n-space>
+        <span v-else />
         <n-select
           v-model:value="selectedWarehouse"
           :options="warehouseOptions"
           style="width: 200px"
           placeholder="选择仓库"
         />
-      </template>
-
-      <div v-if="currentWarehouse" style="margin-bottom: 16px">
-        <n-space>
-          <n-tag type="info">{{ currentWarehouse.type }}</n-tag>
-          <n-tag>{{ currentWarehouse.rows }}行 × {{ currentWarehouse.cols }}列 × {{ currentWarehouse.layers }}层</n-tag>
-          <n-tag type="success">空闲: {{ slotStats.empty || 0 }}</n-tag>
-          <n-tag type="warning">占用: {{ slotStats.occupied || 0 }}</n-tag>
-        </n-space>
-      </div>
+      </n-space>
 
       <WarehouseGrid
         v-if="currentWarehouse"

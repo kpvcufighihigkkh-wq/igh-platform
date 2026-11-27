@@ -1,12 +1,19 @@
 <template>
   <n-layout has-sider style="height: 100vh">
-    <n-layout-sider bordered collapse-mode="width" :collapsed-width="64" :width="200" :collapsed="collapsed" show-trigger @collapse="collapsed = true" @expand="collapsed = false">
-      <div class="logo">IGH</div>
+    <n-layout-sider bordered collapse-mode="width" :collapsed-width="64" :width="220" :collapsed="collapsed" show-trigger @collapse="collapsed = true" @expand="collapsed = false">
+      <!-- 品牌区：白色铭牌承载 IGH 标识，折叠时退化为红字缩写 -->
+      <div class="brand" :class="{ mini: collapsed }">
+        <img v-if="!collapsed" class="brand-logo" src="/igh-logo.jpg" alt="IGH S.r.l." />
+        <span v-else class="brand-mini">IGH</span>
+      </div>
       <n-menu :collapsed="collapsed" :options="menuOptions" :value="activeKey" @update:value="(k: string) => router.push({ name: k })" />
     </n-layout-sider>
     <n-layout>
       <n-layout-header bordered style="height:52px;display:flex;align-items:center;padding:0 20px;justify-content:space-between">
-        <span style="font-size:16px;font-weight:bold">{{ currentTitle }}</span>
+        <div class="page-title">
+          <span class="title-bar" aria-hidden="true"></span>
+          <span>{{ currentTitle }}</span>
+        </div>
         <n-space>
           <n-button text size="small" @click="router.push('/board/overview')">看板</n-button>
           <n-button text size="small" @click="handleLogout">退出</n-button>
@@ -74,5 +81,44 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.logo { height:52px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:bold;color:#00d4ff }
+/* 白色铭牌，与登录页、工位页使用同一品牌呈现方式 */
+.brand {
+  margin: 14px 12px 10px;
+  padding: 12px 14px;
+  background: var(--plate);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand.mini {
+  margin: 14px 10px 10px;
+  padding: 10px 4px;
+}
+.brand-logo {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.brand-mini {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--igh-red);
+}
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.title-bar {
+  width: 3px;
+  height: 18px;
+  background: var(--igh-red);
+}
 </style>

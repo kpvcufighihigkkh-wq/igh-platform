@@ -38,7 +38,7 @@
 
       <n-card v-if="selectedLine.station_type === 'winding'" title="PLC 绑定" size="small" style="margin-top:12px">
         <n-space align="center">
-          <span style="color:#8b949e;font-size:13px">绑定 PLC：</span>
+          <span style="color:var(--steel);font-size:13px">绑定 PLC：</span>
           <n-select v-model:value="selectedPlcCode" :options="plcOpts" clearable
                     placeholder="选择PLC设备" style="width:240px" />
           <n-button size="small" type="primary" @click="savePlcBinding">保存</n-button>
@@ -356,29 +356,29 @@ onMounted(() => { fetchLines(); fetchPlcDevices(); fetchProductTypes() })
 <style scoped>
 .line-config { display: flex; gap: 16px; min-height: calc(100vh - 120px); }
 .line-list {
-  width: 220px; flex-shrink: 0; background: #161b22; border-radius: 8px;
-  border: 1px solid #30363d; padding: 12px;
+  width: 220px; flex-shrink: 0; background: var(--plate); border-radius: 2px;
+  border: 1px solid var(--line); padding: 12px;
 }
-.group-header { font-size: 12px; color: #8b949e; margin: 12px 0 6px 4px; font-weight: 600; }
+.group-header { font-size: 12px; color: var(--steel); margin: 12px 0 6px 4px; font-weight: 600; }
 .group-header:first-of-type { margin-top: 0; }
 .line-item {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
-  color: #c9d1d9; transition: all 0.15s; margin-bottom: 4px;
+  padding: 8px 10px; border-radius: 2px; cursor: pointer; font-size: 13px;
+  color: var(--graphite); transition: background 0.15s; margin-bottom: 4px;
 }
-.line-item:hover { background: #1c2333; }
-.line-item.active { background: #1f6feb; color: #fff; }
+.line-item:hover { background: var(--plate-soft); }
+.line-item.active { background: var(--igh-red-tint); color: var(--igh-red); box-shadow: inset 3px 0 0 var(--igh-red); }
 .line-detail { flex: 1; min-width: 0; }
 
 .winder-list { display: flex; flex-direction: column; gap: 8px; }
 .winder-item {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 12px; background: #0d1117; border: 1px solid #30363d;
-  border-radius: 6px; transition: border-color 0.15s;
+  padding: 10px 12px; background: var(--plate); border: 1px solid var(--line);
+  border-radius: 2px; transition: border-color 0.15s;
 }
-.winder-item:hover { border-color: #22d3ee; }
+.winder-item:hover { border-color: var(--steel-light); }
 .winder-info { display: flex; align-items: center; gap: 12px; }
-.winder-code { font-weight: 600; font-size: 13px; }
-.winder-name { color: #8b949e; font-size: 12px; }
-.reg-count { color: #8b949e; font-size: 11px; }
+.winder-code { font-family: var(--font-mono); font-weight: 600; font-size: 13px; }
+.winder-name { color: var(--steel); font-size: 12px; }
+.reg-count { color: var(--steel-light); font-size: 11px; }
 </style>

@@ -1,7 +1,13 @@
 <template>
   <div class="station">
     <header class="station-header">
-      <h1>外检工位</h1>
+      <div class="nameplate">
+        <span class="nameplate-bar" aria-hidden="true"></span>
+        <div class="nameplate-text">
+          <h1>外检工位</h1>
+          <span class="nameplate-sub">SORTING · 外检区域</span>
+        </div>
+      </div>
       <div class="header-info">
         <n-tag :type="online ? 'success' : 'error'" size="large" round>
           {{ online ? '在线' : `离线 · 待同步 ${queueDepth} 条` }}
@@ -263,37 +269,41 @@ onUnmounted(() => { clearInterval(timer); clearInterval(plcTimer) })
 </script>
 
 <style scoped>
-.station { height:100vh; background:#0d1117; padding:16px; display:flex; flex-direction:column; overflow:hidden; }
+.station { height:100vh; background:var(--paper); padding:16px; display:flex; flex-direction:column; overflow:hidden; }
 .station-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-shrink:0; }
-.station-header h1 { font-size:22px; color:#00d4ff; margin:0; }
+.nameplate { display:flex; align-items:stretch; gap:12px; background:var(--plate); border:1px solid var(--line); border-radius:2px; padding:10px 18px 10px 14px; }
+.nameplate-bar { width:4px; background:var(--igh-red); }
+.nameplate-text { display:flex; flex-direction:column; gap:2px; }
+.nameplate h1 { margin:0; font-family:var(--font-display); font-size:22px; font-weight:600; line-height:1.15; letter-spacing:.02em; color:var(--graphite); }
+.nameplate-sub { font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; color:var(--steel-light); }
 .header-info { display:flex; align-items:center; gap:16px; }
-.clock { font-family:monospace; color:#8b949e; font-size:20px; }
+.clock { font-family:var(--font-mono); font-size:22px; font-variant-numeric:tabular-nums; color:var(--graphite); }
 
 .body { flex:1; display:flex; flex-direction:column; gap:12px; min-height:0; transition:filter .2s; }
-.body.dim { filter:grayscale(.75); }
+.body.dim { filter:grayscale(.8); }
 
-.panel { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
-.panel h2 { margin:0 0 12px; font-size:16px; color:#8b949e; font-weight:500; }
+.panel { background:var(--plate); border:1px solid var(--line); border-radius:2px; padding:16px; }
+.panel h2 { margin:0 0 12px; padding-bottom:8px; border-bottom:1px solid var(--line-soft); font-size:13px; font-weight:600; letter-spacing:.04em; color:var(--steel); }
 
 .scan-panel { display:flex; align-items:center; gap:16px; flex-shrink:0; }
 .scan-input {
-  flex:1; height:72px; border-radius:10px; border:2px solid #30363d; background:#0d1117;
-  color:#e6edf3; font-size:26px; font-family:monospace; padding:0 16px; outline:none;
+  flex:1; height:72px; border-radius:2px; border:2px solid var(--line-strong, #c4c0b8); background:var(--plate);
+  color:var(--graphite); font-size:26px; font-family:var(--font-mono); padding:0 16px; outline:none;
 }
-.scan-input:focus { border-color:#1f6feb; }
-.scan-status { min-width:280px; font-size:18px; color:#8b949e; }
-.scan-status.ok { color:#2ecc71; }
-.scan-status.bad { color:#ef4444; }
+.scan-input:focus { border-color:var(--igh-red); box-shadow:0 0 0 3px rgba(224,33,24,.12); }
+.scan-status { min-width:280px; font-size:18px; color:var(--steel); }
+.scan-status.ok { color:var(--ok); font-weight:600; }
+.scan-status.bad { color:var(--alarm); font-weight:600; }
 
 .row { display:flex; gap:12px; }
 .row.grow { flex:1; min-height:0; }
 
 .detail-panel { flex:1; overflow-y:auto; }
-.bobbin-code { font-size:24px; font-family:monospace; color:#63e2b7; word-break:break-all; margin-bottom:12px; }
-.kv { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #21262d;
-  font-size:18px; color:#c9d1d9; }
-.kv .weight { color:#00d4ff; font-size:22px; font-weight:600; }
-.mono { font-family:monospace; }
+.bobbin-code { margin-bottom:12px; font-family:var(--font-mono); font-size:24px; font-weight:700; color:var(--graphite); word-break:break-all; }
+.kv { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line-soft);
+  font-size:17px; color:var(--graphite); }
+.kv .weight { font-size:22px; font-weight:600; color:var(--graphite); }
+.mono { font-family:var(--font-mono); }
 
 .action-panel { flex:1.4; display:flex; flex-direction:column; min-height:0; }
 
@@ -301,47 +311,53 @@ onUnmounted(() => { clearInterval(timer); clearInterval(plcTimer) })
    足以把缺陷区压成 0 高度，导致缺陷按钮被提交按钮盖住、点不到。 */
 .grade-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:10px; }
 .btn-grade {
-  height:72px; border-radius:10px; border:2px solid #30363d; background:#0d1117;
-  color:#c9d1d9; font-size:24px; font-weight:600; cursor:pointer;
-  transition:transform .06s, filter .06s, border-color .15s;
+  height:72px; border-radius:2px; border:2px solid var(--line); background:var(--plate);
+  color:var(--graphite); font-family:var(--font-display); font-size:24px; font-weight:600; cursor:pointer;
+  transition:transform .06s, border-color .15s, background .15s;
 }
-.btn-grade.active { border-color:#1f6feb; background:#0d2a52; color:#79c0ff; }
-.btn-grade:active { transform:translateY(2px); filter:brightness(1.35); }
+.btn-grade:hover { border-color:var(--steel-light); }
+/* 选中用品牌红：判级是这一页唯一的主决策 */
+.btn-grade.active { border-color:var(--igh-red); background:var(--igh-red-tint); color:var(--igh-red); }
+.btn-grade:active { transform:translateY(2px); }
 
 /* min-height 保证缺陷区永远有可点的空间；空间不足时它自己内部滚动，
    而不是被后面的主按钮挤掉——那会让按钮"消失"或被遮挡。 */
 .defect-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;
   flex:1; min-height:74px; overflow-y:auto; align-content:start; }
 .btn-defect {
-  height:64px; border-radius:10px; border:2px solid #30363d; background:#0d1117;
-  color:#c9d1d9; font-size:18px; cursor:pointer;
-  transition:transform .06s, filter .06s, border-color .15s;
+  height:64px; border-radius:2px; border:2px solid var(--line); background:var(--plate);
+  color:var(--graphite); font-size:18px; cursor:pointer;
+  transition:transform .06s, border-color .15s, background .15s;
 }
-.btn-defect.active { border-color:#f0b429; background:#3d2d05; color:#f0b429; }
-.btn-defect:active { transform:translateY(2px); filter:brightness(1.35); }
+.btn-defect:hover { border-color:var(--steel-light); }
+/* 缺陷用琥珀色，与"品牌红 = 主操作 / 告警红 = 异常"区分开 */
+.btn-defect.active { border-color:var(--warn); background:var(--warn-tint); color:var(--warn); font-weight:600; }
+.btn-defect:active { transform:translateY(2px); }
 
 /* 主操作：112px 高，戴手套也能稳按 */
 .btn-primary {
-  height:112px; width:100%; margin-top:12px; border-radius:10px; border:none; cursor:pointer;
-  background:#1f6feb; color:#fff; font-size:28px; font-weight:600;
-  transition: transform .06s, filter .06s; flex-shrink:0;
+  height:112px; width:100%; margin-top:12px; border-radius:2px; border:none; cursor:pointer;
+  background:var(--igh-red); color:#fff; font-size:28px; font-weight:600;
+  transition: transform .06s, background .15s; flex-shrink:0;
 }
-.btn-primary:active:not(:disabled) { transform:translateY(2px); filter:brightness(1.35); }
-.btn-primary:disabled { background:#30363d; color:#6e7681; cursor:not-allowed; }
+.btn-primary:hover:not(:disabled) { background:var(--igh-red-hover); }
+.btn-primary:active:not(:disabled) { transform:translateY(2px); background:var(--igh-red-deep); }
+.btn-primary:disabled { background:var(--line); color:var(--steel-light); cursor:not-allowed; }
 
 .dist-panel { flex-shrink:0; }
 .dist-row { display:flex; gap:28px; flex-wrap:wrap; }
 .dist-item { display:flex; align-items:baseline; gap:8px; }
-.dist-grade { font-size:18px; color:#8b949e; }
-.dist-count { font-size:32px; font-weight:700; color:#e6edf3; font-variant-numeric:tabular-nums; }
+.dist-grade { font-size:17px; color:var(--steel); }
+.dist-count { font-family:var(--font-display); font-size:32px; font-weight:600; color:var(--graphite); font-variant-numeric:tabular-nums; }
 
 .toast {
-  position:fixed; left:50%; top:80px; transform:translateX(-50%);
-  background:#1f6feb; color:#fff; padding:14px 28px; border-radius:10px;
-  font-size:22px; box-shadow:0 6px 20px rgba(0,0,0,.4); z-index:100;
+  position:fixed; left:50%; top:84px; transform:translateX(-50%);
+  background:var(--graphite); color:#fff; padding:14px 26px 14px 22px;
+  border-left:4px solid var(--igh-red); border-radius:2px;
+  font-size:21px; box-shadow:0 6px 18px rgba(37,40,43,.28); z-index:100;
 }
 .toast-enter-active, .toast-leave-active { transition:opacity .2s, transform .2s; }
 .toast-enter-from, .toast-leave-to { opacity:0; transform:translate(-50%, -12px); }
 
-.empty-hint { color:#6e7681; font-size:16px; padding:12px 0; }
+.empty-hint { padding:12px 0; font-size:15px; color:var(--steel-light); }
 </style>

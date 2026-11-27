@@ -16,13 +16,13 @@
         <n-data-table :columns="ptCols" :data="productTypes" :bordered="false" size="small" />
       </n-tab-pane>
       <n-tab-pane name="modules" tab="模块配置">
-        <p style="margin-bottom:12px;color:#8b949e">切换模块开关后立即生效，无需重启服务。关闭模块后对应API将返回403，管理菜单置灰。</p>
+        <p style="margin-bottom:12px;color:var(--steel)">切换模块开关后立即生效，无需重启服务。关闭模块后对应API将返回403，管理菜单置灰。</p>
         <n-space vertical size="large">
           <div v-for="m in moduleList" :key="m.key" style="display:flex;align-items:flex-start;gap:12px">
             <n-switch :value="modules[m.key]" :disabled="m.key==='Winding'" @update:value="(val: boolean) => toggleModule(m.key, val)" style="margin-top:2px" />
             <div>
-              <div style="font-weight:bold">{{ m.label }}<span v-if="m.key==='Winding'" style="font-size:11px;color:#63e2b7;margin-left:6px">（核心模块，不可关闭）</span></div>
-              <div style="font-size:12px;color:#8b949e">{{ m.desc }}</div>
+              <div style="font-weight:bold">{{ m.label }}<span v-if="m.key==='Winding'" style="font-size:11px;color:var(--ok);margin-left:6px">（核心模块，不可关闭）</span></div>
+              <div style="font-size:12px;color:var(--steel)">{{ m.desc }}</div>
             </div>
           </div>
         </n-space>

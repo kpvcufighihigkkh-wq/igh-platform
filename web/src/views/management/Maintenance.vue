@@ -1,6 +1,6 @@
 <template>
   <div>
-    <n-card title="维保管理">
+    <n-card>
       <n-tabs type="line" v-model:value="activeTab">
         <n-tab-pane name="equipment" tab="设备台账">
           <n-space style="margin-bottom:12px">
