@@ -46,9 +46,13 @@ data/
 data-*/
 data3/
 
-# 中心托管的前端产物：由 `npm run build` 生成后拷到 <配置目录>/ui/。
-# 源码在 web/src，产物不应入库，否则每次构建都会产生大量无意义 diff。
+# 前端构建产物：由 web-build / npm run build 生成，不入库。
+# 源码在 web/src；构建文件名带哈希，入库只会制造无意义 diff。
 configs/ui/
+configs-dev3/ui/
+internal/edge/app/dist/*
+# 边端 //go:embed all:dist 要求目录存在，保留占位文件
+!internal/edge/app/dist/.gitkeep
 
 # 旧系统资料（O17004 / O17006 的日志与源码快照）。
 # 只用于开发期核对字段与点表来源，不属于新系统，也不被任何代码引用。

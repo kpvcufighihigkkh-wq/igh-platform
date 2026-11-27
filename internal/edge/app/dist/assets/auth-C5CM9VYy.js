@@ -1,1 +1,0 @@
-import{aa as u,bk as n}from"./index-DpE57SGd.js";const s=u("auth",()=>{const e=n(localStorage.getItem("token")||""),t=n(null);function a(o){e.value=o,localStorage.setItem("token",o)}function l(){e.value="",t.value=null,localStorage.removeItem("token")}return{token:e,user:t,setToken:a,logout:l}});export{s as u};
