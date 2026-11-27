@@ -30,7 +30,8 @@ ha:
 database:
   # --- 单机部署：只写 host ---
   host: "127.0.0.1"
-  port: 5432
+  # 本机 PostgreSQL 由 docker-compose 提供，固定映射到 5434
+  port: 5434
 
   # --- 双机热备：改用 hosts 列表，host 不再生效 ---
   # 连接时按顺序尝试，且只接受可写的那台（target_session_attrs=read-write），

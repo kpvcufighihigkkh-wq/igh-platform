@@ -29,7 +29,13 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     server: {
+      // 监听所有网卡：现场平板、其他电脑用 http://<本机局域网IP>:3000 直接打开，
+      // 不需要在每台机器上装 Node。接口仍由本机 Vite 代理到后端，
+      // 所以后端只需要被本机访问得到即可。
+      host: true,
       port: 3000,
+      // 端口被占时直接报错，不要静默换到 3001——现场按固定地址发链接
+      strictPort: true,
       proxy: {
         '/api': {
           target,

@@ -6,7 +6,8 @@ services:
       POSTGRES_USER: igh
       POSTGRES_PASSWORD: ${DB_PASSWORD:-igh_dev_2026}
     ports:
-      - "5432:5432"
+      # 本机 5432 留给可能的其它 PostgreSQL；V5 开发库固定走 5434
+      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -14,21 +15,6 @@ services:
     image: redis:7
     ports:
       - "6379:6379"
-
-  server:
-    build:
-      context: .
-      dockerfile: deployments/Dockerfile.server
-    ports:
-      - "8099:8099"
-    environment:
-      DB_PASSWORD: ${DB_PASSWORD:-igh_dev_2026}
-      IGH_CONFIG_DIR: /app/configs
-    volumes:
-      - ./configs:/app/configs:ro
-    depends_on:
-      - postgres
-      - redis
 
 volumes:
   pgdata:
